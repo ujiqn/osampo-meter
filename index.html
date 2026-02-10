@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>おさんぽメーター</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #1a1a2e;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ヘッダー */
+  .header {
+    padding: 12px 16px;
+    background: #16213e;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .header h1 {
+    font-size: 18px;
+    white-space: nowrap;
+  }
+  .ble-status {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #333;
+    white-space: nowrap;
+  }
+  .ble-status.connected { background: #0a6e3a; }
+
+  /* 地図 */
+  #map-container {
+    position: relative;
+    flex: 1;
+    min-height: 250px;
+  }
+  #map {
+    width: 100%;
+    height: 100%;
+  }
+  .map-hint {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 1000;
+    white-space: nowrap;
+  }
+
+  /* 進捗表示 */
+  .progress-display {
+    text-align: center;
+    padding: 12px;
+    background: #16213e;
+    flex-shrink: 0;
+  }
+  .progress-number {
+    font-size: 48px;
+    font-weight: bold;
+    color: #0ff;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-bar-container {
+    margin: 8px auto 0;
+    width: 90%;
+    height: 10px;
+    background: #333;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: #0ff;
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 5px;
+  }
+
+  /* コントロール */
+  .controls {
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+    background: #16213e;
+    flex-shrink: 0;
+  }
+  .btn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ble {
+    background: #2563eb;
+    color: #fff;
+  }
+  .btn-start {
+    background: #16a34a;
+    color: #fff;
+  }
+  .btn-stop {
+    background: #dc2626;
+    color: #fff;
+  }
+
+  /* 目的地情報 */
+  .dest-info {
+    padding: 8px 16px;
+    font-size: 13px;
+    color: #aaa;
+    background: #16213e;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .dest-info .dest-clear {
+    color: #f87171;
+    margin-left: 8px;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🚶 おさんぽメーター</h1>
+  <span class="ble-status" id="bleStatus">BLE未接続</span>
+</div>
+
+<div id="map-container">
+  <div class="map-hint" id="mapHint">地図をタップして目的地を設定</div>
+  <div id="map"></div>
+</div>
+
+<div class="dest-info" id="destInfo" style="display:none;">
+  目的地: <span id="destText"></span>
+  <span class="dest-clear" id="destClear">クリア</span>
+</div>
+
+<div class="progress-display">
+  <div class="progress-number"><span id="progressValue">0.0</span>%</div>
+  <div class="progress-bar-container">
+    <div class="progress-bar-fill" id="progressBar"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-ble" id="btnBle">BLE接続</button>
+  <button class="btn btn-start" id="btnStart" disabled>スタート</button>
+</div>
+
+<!-- Leaflet CSS/JS (OSS地図ライブラリ) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ==================== 定数 ====================
+const SERVICE_UUID        = '12345678-1234-1234-1234-123456789abc';
+const CHARACTERISTIC_UUID = '12345678-1234-1234-1234-123456789def';
+const STORAGE_KEY = 'osampo_destination';
+const GOAL_RADIUS_M = 50; // 50m以内でゴール
+
+// ==================== 状態 ====================
+let bleDevice = null;
+let bleCharacteristic = null;
+let watchId = null;
+let startDistance = null;
+let destination = null;   // { lat, lng }
+let destMarker = null;
+let currentMarker = null;
+let isRunning = false;
+let lastSentProgress = -1;
+
+// ==================== DOM ====================
+const $bleStatus = document.getElementById('bleStatus');
+const $btnBle = document.getElementById('btnBle');
+const $btnStart = document.getElementById('btnStart');
+const $progressValue = document.getElementById('progressValue');
+const $progressBar = document.getElementById('progressBar');
+const $mapHint = document.getElementById('mapHint');
+const $destInfo = document.getElementById('destInfo');
+const $destText = document.getElementById('destText');
+const $destClear = document.getElementById('destClear');
+
+// ==================== 地図初期化 ====================
+const map = L.map('map', {
+  zoomControl: false,
+  attributionControl: true
+}).setView([35.6812, 139.7671], 15); // 東京駅付近をデフォルト
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap',
+  maxZoom: 19
+}).addTo(map);
+
+// 現在地に移動
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+    },
+    () => {},
+    { enableHighAccuracy: true }
+  );
+}
+
+// 保存済み目的地の復元
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) {
+  try {
+    const d = JSON.parse(saved);
+    if (d.lat && d.lng) {
+      setDestination(d.lat, d.lng, false);
+    }
+  } catch (e) {}
+}
+
+// 地図タップで目的地設定
+map.on('click', (e) => {
+  if (isRunning) return;
+  setDestination(e.latlng.lat, e.latlng.lng, true);
+});
+
+function setDestination(lat, lng, save) {
+  destination = { lat, lng };
+
+  if (destMarker) {
+    destMarker.setLatLng([lat, lng]);
+  } else {
+    destMarker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div style="background:#f43f5e;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);">🏁</div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      })
+    }).addTo(map);
+  }
+
+  $mapHint.style.display = 'none';
+  $destInfo.style.display = 'block';
+  $destText.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  updateStartButton();
+
+  if (save) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lat, lng }));
+  }
+}
+
+$destClear.addEventListener('click', () => {
+  if (isRunning) return;
+  destination = null;
+  if (destMarker) {
+    map.removeLayer(destMarker);
+    destMarker = null;
+  }
+  $destInfo.style.display = 'none';
+  $mapHint.style.display = 'block';
+  localStorage.removeItem(STORAGE_KEY);
+  updateStartButton();
+});
+
+// ==================== BLE ====================
+$btnBle.addEventListener('click', async () => {
+  try {
+    $btnBle.textContent = '接続中...';
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'OsampoMeter' }],
+      optionalServices: [SERVICE_UUID]
+    });
+
+    bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
+
+    const server = await bleDevice.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+    $bleStatus.textContent = 'BLE接続済み';
+    $bleStatus.classList.add('connected');
+    $btnBle.textContent = 'BLE接続済み';
+    $btnBle.disabled = true;
+    updateStartButton();
+
+  } catch (err) {
+    console.error('BLE接続エラー:', err);
+    $btnBle.textContent = 'BLE接続';
+    alert('BLE接続に失敗しました。\nデバイスの電源を確認してください。');
+  }
+});
+
+function onBleDisconnected() {
+  bleCharacteristic = null;
+  $bleStatus.textContent = 'BLE切断';
+  $bleStatus.classList.remove('connected');
+  $btnBle.textContent = 'BLE接続';
+  $btnBle.disabled = false;
+  if (isRunning) stopTracking();
+  updateStartButton();
+}
+
+async function sendProgress(value) {
+  // value: 0〜1000 (uint16_t)
+  if (!bleCharacteristic) return;
+  const clamped = Math.max(0, Math.min(1000, Math.round(value)));
+  if (clamped === lastSentProgress) return;
+  lastSentProgress = clamped;
+
+  try {
+    const buf = new ArrayBuffer(2);
+    const view = new DataView(buf);
+    view.setUint16(0, clamped, true); // little-endian
+    await bleCharacteristic.writeValueWithoutResponse(buf);
+  } catch (err) {
+    console.error('BLE送信エラー:', err);
+  }
+}
+
+// ==================== GPS追跡 ====================
+$btnStart.addEventListener('click', () => {
+  if (isRunning) {
+    stopTracking();
+  } else {
+    startTracking();
+  }
+});
+
+function startTracking() {
+  if (!destination || !bleCharacteristic) return;
+
+  isRunning = true;
+  startDistance = null;
+  lastSentProgress = -1;
+  $btnStart.textContent = 'ストップ';
+  $btnStart.classList.remove('btn-start');
+  $btnStart.classList.add('btn-stop');
+  $progressValue.textContent = '0.0';
+  $progressBar.style.width = '0%';
+
+  // 初期値を送信
+  sendProgress(0);
+
+  watchId = navigator.geolocation.watchPosition(
+    onPositionUpdate,
+    onPositionError,
+    {
+      enableHighAccuracy: true,
+      maximumAge: 2000,
+      timeout: 10000
+    }
+  );
+}
+
+function stopTracking() {
+  isRunning = false;
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  startDistance = null;
+  $btnStart.textContent = 'スタート';
+  $btnStart.classList.remove('btn-stop');
+  $btnStart.classList.add('btn-start');
+}
+
+function onPositionUpdate(pos) {
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
+
+  // 現在地マーカーを更新
+  if (currentMarker) {
+    currentMarker.setLatLng([lat, lng]);
+  } else {
+    currentMarker = L.circleMarker([lat, lng], {
+      radius: 8,
+      fillColor: '#3b82f6',
+      fillOpacity: 1,
+      color: '#fff',
+      weight: 2
+    }).addTo(map);
+  }
+
+  const dist = haversineDistance(lat, lng, destination.lat, destination.lng);
+
+  // 出発時の距離を記録
+  if (startDistance === null) {
+    startDistance = dist;
+    if (startDistance < GOAL_RADIUS_M) {
+      // 既にゴール地点にいる場合
+      startDistance = GOAL_RADIUS_M;
+    }
+  }
+
+  // 進捗計算: 0.0%〜100.0% → 0〜1000
+  let progress;
+  if (dist <= GOAL_RADIUS_M) {
+    progress = 1000;
+  } else {
+    progress = (1 - dist / startDistance) * 1000;
+    progress = Math.max(0, Math.min(999, progress));
+  }
+
+  const progressRounded = Math.round(progress);
+
+  // UI更新
+  const displayPct = (progressRounded / 10).toFixed(1);
+  $progressValue.textContent = displayPct;
+  $progressBar.style.width = (progressRounded / 10) + '%';
+
+  // BLE送信
+  sendProgress(progressRounded);
+}
+
+function onPositionError(err) {
+  console.error('GPS エラー:', err);
+}
+
+// ==================== ユーティリティ ====================
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // 地球の半径 (m)
+  const toRad = (deg) => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function updateStartButton() {
+  $btnStart.disabled = !(destination && bleCharacteristic);
+}
+</script>
+</body>
+</html>
