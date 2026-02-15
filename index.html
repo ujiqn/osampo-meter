@@ -505,30 +505,54 @@ function initApp() {
     updateStartButton();
   });
 
-  // ==================== テストモード ====================
+  // ==================== テストモード（1分で100%デモ） ====================
+  let testTimer = null;
+  let testProgress = 0;
+
   $btnTest.addEventListener('click', () => {
     if (testMode) {
+      // テスト停止
       testMode = false;
+      if (testTimer) { clearInterval(testTimer); testTimer = null; }
+      testProgress = 0;
       $btnTest.textContent = 'テスト';
-      $bleStatus.textContent = 'BLE未接続';
+      $bleStatus.textContent = bleCharacteristic ? 'BLE接続済み' : 'BLE未接続';
       $bleStatus.classList.remove('test-mode');
-      if (isRunning) stopTracking();
-      updateStartButton();
+      $progressValue.textContent = '0.000';
+      $progressBar.style.width = '0%';
+      $progressDistance.textContent = '';
     } else {
+      // テスト開始: 1分(60秒)で0→100%、100msごとに更新
       testMode = true;
+      testProgress = 0;
       $btnTest.textContent = 'テスト中';
       $bleStatus.textContent = 'テストモード';
       $bleStatus.classList.add('test-mode');
-      updateStartButton();
+
+      // 60秒 = 60000ms、100msごとに更新 → 600回で100000に到達
+      // 毎回の増分 = 100000 / 600 ≒ 167
+      testTimer = setInterval(() => {
+        testProgress += 167;
+        if (testProgress >= 100000) testProgress = 100000;
+
+        const displayPct = (testProgress / 1000).toFixed(3);
+        $progressValue.textContent = displayPct;
+        $progressBar.style.width = (testProgress / 1000) + '%';
+        $progressDistance.textContent = 'テスト中...';
+
+        // BLE送信（M5StickC接続中なら送る）
+        sendProgress(testProgress);
+
+        if (testProgress >= 100000) {
+          clearInterval(testTimer);
+          testTimer = null;
+        }
+      }, 100);
     }
   });
 
   // ==================== BLE ====================
   $btnBle.addEventListener('click', async () => {
-    if (testMode) {
-      alert('テストモード中はBLE接続不要です。');
-      return;
-    }
     try {
       $btnBle.textContent = '接続中...';
       bleDevice = await navigator.bluetooth.requestDevice({
