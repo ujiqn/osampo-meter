@@ -32,13 +32,20 @@ int lastMilestone = -1;          // 最後に音を鳴らした10%刻みの値
 unsigned long goalStartTime = 0;
 unsigned long lastBlinkTime = 0;
 bool goalBlinkOn = true;
+unsigned long lastBatteryUpdate = 0;  // バッテリー表示更新タイマー
 
-// ゴール演出用メロディ (周波数, 長さms)
-const int melodyNotes[][2] = {
+// マイルストーン演出用メロディ (周波数, 長さms) - 短い3音ファンファーレ
+const int milestoneMelody[][2] = {
+  {784, 100}, {988, 100}, {1319, 200}   // G5→B5→E6 (明るい上昇音)
+};
+const int milestoneLength = 3;
+
+// ゴール演出用メロディ (周波数, 長さms) - 豪華な6音ファンファーレ
+const int goalMelody[][2] = {
   {523, 150}, {659, 150}, {784, 150}, {1047, 300},
   {784, 150}, {1047, 400}
 };
-const int melodyLength = 6;
+const int goalLength = 6;
 
 // --- BLEコールバック ---
 class ServerCallbacks : public BLEServerCallbacks {
@@ -73,6 +80,31 @@ void drawWaiting() {
   M5.Lcd.setTextDatum(MC_DATUM);
   M5.Lcd.drawString("せつぞく", M5.Lcd.width() / 2, M5.Lcd.height() / 2 - 20);
   M5.Lcd.drawString("まち...", M5.Lcd.width() / 2, M5.Lcd.height() / 2 + 20);
+
+  // バッテリー残量表示
+  drawBattery();
+}
+
+void drawBattery() {
+  int battLevel = M5.Power.getBatteryLevel();  // 0〜100
+  char batBuf[16];
+  snprintf(batBuf, sizeof(batBuf), "BAT:%d%%", battLevel);
+
+  // バッテリーアイコンの色（残量に応じて変化）
+  uint16_t batColor;
+  if (battLevel > 50) {
+    batColor = TFT_GREEN;
+  } else if (battLevel > 20) {
+    batColor = TFT_YELLOW;
+  } else {
+    batColor = TFT_RED;
+  }
+
+  M5.Lcd.setFont(&fonts::Font2);
+  M5.Lcd.setTextSize(1);
+  M5.Lcd.setTextDatum(BR_DATUM);  // 右下基準
+  M5.Lcd.setTextColor(batColor, TFT_BLACK);
+  M5.Lcd.drawString(batBuf, M5.Lcd.width() - 5, M5.Lcd.height() - 5);
 }
 
 void drawProgress(uint32_t progress) {
@@ -129,16 +161,18 @@ void drawGoal() {
 }
 
 // --- 音・振動 ---
-void playMilestoneBeep() {
-  M5.Speaker.tone(880, 100);
-  delay(120);
+void playMilestoneMelody() {
+  for (int i = 0; i < milestoneLength; i++) {
+    M5.Speaker.tone(milestoneMelody[i][0], milestoneMelody[i][1]);
+    delay(milestoneMelody[i][1] + 30);
+  }
   M5.Speaker.stop();
 }
 
 void playGoalMelody() {
-  for (int i = 0; i < melodyLength; i++) {
-    M5.Speaker.tone(melodyNotes[i][0], melodyNotes[i][1]);
-    delay(melodyNotes[i][1] + 30);
+  for (int i = 0; i < goalLength; i++) {
+    M5.Speaker.tone(goalMelody[i][0], goalMelody[i][1]);
+    delay(goalMelody[i][1] + 30);
   }
   M5.Speaker.stop();
 }
@@ -210,6 +244,12 @@ void loop() {
   }
 
   if (!deviceConnected) {
+    // 待機中は30秒ごとにバッテリー表示を更新
+    unsigned long now = millis();
+    if (now - lastBatteryUpdate > 30000) {
+      lastBatteryUpdate = now;
+      drawWaiting();  // バッテリー残量込みで再描画
+    }
     delay(100);
     return;
   }
@@ -251,7 +291,7 @@ void loop() {
         playGoalMelody();
       } else {
         // 10%マイルストーン
-        playMilestoneBeep();
+        playMilestoneMelody();
       }
     }
     lastMilestone = currentMilestone;

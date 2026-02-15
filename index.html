@@ -589,7 +589,7 @@ function initApp() {
     const clamped = Math.max(0, Math.min(100000, Math.round(value)));
     if (clamped === lastSentProgress) return;
     lastSentProgress = clamped;
-    if (testMode || !bleCharacteristic) return;
+    if (!bleCharacteristic) return;
     try {
       const buf = new ArrayBuffer(4);
       const view = new DataView(buf);
