@@ -1,6 +1,6 @@
 /*
  * おさんぽメーター - M5StickC Plus2
- * BLEで進捗(0〜1000 = 0.0%〜100.0%)を受信し、画面に大きく表示する
+ * BLEで進捗(0〜100000 = 0.000%〜100.000%)を受信し、画面に大きく表示する
  * 10%ごとにブザー音、100%でゴール演出
  */
 
@@ -26,8 +26,8 @@ State currentState = STATE_WAITING;
 bool deviceConnected = false;
 bool prevConnected = false;
 
-uint16_t currentProgress = 0;    // 0〜1000 (0.0%〜100.0%)
-uint16_t prevProgress = 0;
+uint32_t currentProgress = 0;    // 0〜100000 (0.000%〜100.000%)
+uint32_t prevProgress = 0;
 int lastMilestone = -1;          // 最後に音を鳴らした10%刻みの値
 unsigned long goalStartTime = 0;
 unsigned long lastBlinkTime = 0;
@@ -54,10 +54,10 @@ class ProgressCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) {
     uint8_t* data = pCharacteristic->getData();
     size_t len = pCharacteristic->getLength();
-    if (len >= 2) {
-      // uint16_t little-endian: 0〜1000
-      uint16_t val = data[0] | (data[1] << 8);
-      if (val > 1000) val = 1000;
+    if (len >= 4) {
+      // uint32_t little-endian: 0〜100000
+      uint32_t val = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+      if (val > 100000) val = 100000;
       prevProgress = currentProgress;
       currentProgress = val;
     }
@@ -75,30 +75,31 @@ void drawWaiting() {
   M5.Lcd.drawString("まち...", M5.Lcd.width() / 2, M5.Lcd.height() / 2 + 20);
 }
 
-void drawProgress(uint16_t progress) {
+void drawProgress(uint32_t progress) {
   M5.Lcd.fillScreen(TFT_BLACK);
   M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
 
-  // メイン数字: XX.X%
-  float pct = progress / 10.0;
+  // メイン数字: XX.XXX%
+  float pct = progress / 1000.0;
   char buf[16];
-  snprintf(buf, sizeof(buf), "%.1f", pct);
+  snprintf(buf, sizeof(buf), "%.3f", pct);
 
   // 大きな数字
-  M5.Lcd.setFont(&fonts::Font7);
-  M5.Lcd.setTextSize(1);
+  M5.Lcd.setFont(&fonts::Font4);
+  M5.Lcd.setTextSize(2);
   M5.Lcd.setTextDatum(MC_DATUM);
   M5.Lcd.drawString(buf, M5.Lcd.width() / 2, M5.Lcd.height() / 2 - 10);
 
   // %記号
   M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
+  M5.Lcd.setTextSize(1);
   M5.Lcd.setTextDatum(MC_DATUM);
   M5.Lcd.drawString("%", M5.Lcd.width() / 2, M5.Lcd.height() / 2 + 40);
 
   // プログレスバー
   int barY = M5.Lcd.height() - 20;
   int barW = M5.Lcd.width() - 20;
-  int filled = (int)(barW * progress / 1000.0);
+  int filled = (int)(barW * progress / 100000.0);
   M5.Lcd.drawRect(9, barY - 1, barW + 2, 12, TFT_WHITE);
   if (filled > 0) {
     M5.Lcd.fillRect(10, barY, filled, 10, TFT_CYAN);
@@ -237,10 +238,10 @@ void loop() {
     drawProgress(currentProgress);
     currentState = STATE_PROGRESS;
 
-    // 10%刻みのマイルストーンチェック (100 = 10.0%)
-    int currentMilestone = currentProgress / 100;
+    // 10%刻みのマイルストーンチェック (10000 = 10.000%)
+    int currentMilestone = currentProgress / 10000;
     if (currentMilestone > lastMilestone && lastMilestone >= 0) {
-      if (currentProgress >= 1000) {
+      if (currentProgress >= 100000) {
         // ゴール！
         currentState = STATE_GOAL;
         goalStartTime = millis();
