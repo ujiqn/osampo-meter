@@ -5,13 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>おさんぽメーター</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚶</text></svg>">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
   body {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     background: #1a1a2e;
     color: #fff;
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
   }
@@ -171,8 +175,6 @@
   <button class="btn btn-start" id="btnStart" disabled>スタート</button>
 </div>
 
-<!-- Leaflet CSS/JS (OSS地図ライブラリ) -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
@@ -214,6 +216,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap',
   maxZoom: 19
 }).addTo(map);
+
+// iOS Safari対応: 地図サイズを確実に反映
+setTimeout(() => { map.invalidateSize(); }, 300);
+window.addEventListener('resize', () => { map.invalidateSize(); });
 
 // 現在地に移動
 if (navigator.geolocation) {
