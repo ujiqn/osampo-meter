@@ -252,7 +252,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.7</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.8</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -865,57 +865,23 @@ function initApp() {
     releaseWakeLock();
   }
 
-  // 点Pから線分AB上への射影位置(0-1)と距離を返す
-  function projectOntoSegment(pLat, pLng, aLat, aLng, bLat, bLng) {
-    const cosLat = Math.cos(((aLat + bLat) / 2) * Math.PI / 180);
-    const apY = pLat - aLat, apX = (pLng - aLng) * cosLat;
-    const abY = bLat - aLat, abX = (bLng - aLng) * cosLat;
-    const ab2 = abY * abY + abX * abX;
-    if (ab2 === 0) return { t: 0, dist: haversineDistance(pLat, pLng, aLat, aLng) };
-    const t = Math.max(0, Math.min(1, (apY * abY + apX * abX) / ab2));
-    const projLat = aLat + t * (bLat - aLat);
-    const projLng = aLng + t * (bLng - aLng);
-    return { t, dist: haversineDistance(pLat, pLng, projLat, projLng) };
-  }
-
-  // 累積距離ベースの進捗計算
+  // 進捗計算: 終着駅までの残り距離ベース
+  // 「しゅっぱつ」を押した時の終着駅までの距離を100%の基準とし、
+  // 終着駅に近づくほど進捗が上がるシンプルな方式
   function calcRouteProgress(lat, lng) {
     if (stations.length < 2) return { progress: 0, distToFinal: 0, distToNext: 0 };
 
-    // 各区間の距離
-    const segDists = [];
-    let totalDist = 0;
-    for (let i = 0; i < stations.length - 1; i++) {
-      const d = haversineDistance(stations[i].lat, stations[i].lng, stations[i+1].lat, stations[i+1].lng);
-      segDists.push(d);
-      totalDist += d;
-    }
-    if (totalDist === 0) return { progress: 0, distToFinal: 0, distToNext: 0 };
-
-    // 各区間の開始位置（累積距離）
-    const segStart = [0];
-    for (let i = 0; i < segDists.length; i++) {
-      segStart.push(segStart[i] + segDists[i]);
-    }
-
-    // 全区間への射影で最も近い場所を見つける
-    let bestDist = Infinity;
-    let bestCum = 0;
-    for (let i = 0; i < segDists.length; i++) {
-      const proj = projectOntoSegment(lat, lng,
-        stations[i].lat, stations[i].lng,
-        stations[i+1].lat, stations[i+1].lng);
-      if (proj.dist < bestDist) {
-        bestDist = proj.dist;
-        bestCum = segStart[i] + proj.t * segDists[i];
-      }
-    }
-
-    const progress = (bestCum / totalDist) * 100000;
     const distToFinal = haversineDistance(lat, lng,
       stations[stations.length-1].lat, stations[stations.length-1].lng);
     const nextSt = stations[Math.min(nextStationIndex, stations.length - 1)];
     const distToNext = haversineDistance(lat, lng, nextSt.lat, nextSt.lng);
+
+    // 初回GPS取得時の距離を基準にする
+    if (startDistance === null || startDistance <= 0) {
+      startDistance = distToFinal;
+    }
+
+    const progress = ((startDistance - distToFinal) / startDistance) * 100000;
 
     return {
       progress: Math.max(0, Math.min(99999, Math.round(progress))),
@@ -924,15 +890,11 @@ function initApp() {
     };
   }
 
-  let gpsUpdateCount = 0;
   function onPositionUpdate(pos) {
-    gpsUpdateCount++;
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
-    const accuracy = pos.coords.accuracy;
 
     const finalStation = stations[stations.length - 1];
     const distToFinal = haversineDistance(lat, lng, finalStation.lat, finalStation.lng);
-    const distToFirst = haversineDistance(lat, lng, stations[0].lat, stations[0].lng);
 
     // 駅通過チェック
     for (let i = nextStationIndex; i < stations.length; i++) {
@@ -963,38 +925,7 @@ function initApp() {
     else maxProgress = progressRounded;
 
     $progressValue.textContent = (progressRounded / 1000).toFixed(3);
-
-    // デバッグ: calcRouteProgressの内部値を表示
-    let debugInfo = '';
-    if (stations.length >= 2) {
-      const segDists = [];
-      let totalD = 0;
-      for (let i = 0; i < stations.length - 1; i++) {
-        const d = haversineDistance(stations[i].lat, stations[i].lng, stations[i+1].lat, stations[i+1].lng);
-        segDists.push(d);
-        totalD += d;
-      }
-      const segStart = [0];
-      for (let i = 0; i < segDists.length; i++) segStart.push(segStart[i] + segDists[i]);
-
-      let bestD = Infinity, bestC = 0, bestSeg = -1, bestT = 0;
-      for (let i = 0; i < segDists.length; i++) {
-        const proj = projectOntoSegment(lat, lng,
-          stations[i].lat, stations[i].lng,
-          stations[i+1].lat, stations[i+1].lng);
-        if (proj.dist < bestD) {
-          bestD = proj.dist;
-          bestC = segStart[i] + proj.t * segDists[i];
-          bestSeg = i;
-          bestT = proj.t;
-        }
-      }
-      debugInfo = ' seg' + bestSeg + ' t=' + bestT.toFixed(2) + ' d=' + Math.round(bestD) + 'm cum=' + Math.round(bestC) + '/' + Math.round(totalD);
-    }
-
-    $progressRemaining.textContent = 'ゴール' + formatDist(distToFinal)
-      + ' raw:' + (progress / 1000).toFixed(1)
-      + debugInfo;
+    $progressRemaining.textContent = 'ゴールまで ' + formatDist(distToFinal);
     drawTrainBar(progressRounded, nextStationIndex, stations.length);
     sendProgressV2(progressRounded, distToNext, distToFinal, nextStationIndex, stations.length);
   }
