@@ -614,15 +614,20 @@ function initApp() {
     updateStartButton();
   }
 
-  async function sendProgress(value) {
+  let lastDistanceM = 0; // 最後の残り距離(m)
+
+  async function sendProgress(value, distanceM) {
     const clamped = Math.max(0, Math.min(100000, Math.round(value)));
+    if (distanceM !== undefined) lastDistanceM = Math.round(distanceM);
     if (clamped === lastSentProgress) return;
     lastSentProgress = clamped;
     if (!bleCharacteristic) return;
     try {
-      const buf = new ArrayBuffer(4);
+      // 8バイト: 進捗(uint32 LE) + 残り距離メートル(uint32 LE)
+      const buf = new ArrayBuffer(8);
       const view = new DataView(buf);
       view.setUint32(0, clamped, true);
+      view.setUint32(4, Math.max(0, lastDistanceM), true);
       await bleCharacteristic.writeValueWithoutResponse(buf);
     } catch (err) {
       console.error('BLE送信エラー:', err);
@@ -728,8 +733,8 @@ function initApp() {
       $progressDistance.textContent = `残り ${Math.round(dist)} m`;
     }
 
-    // BLE送信
-    sendProgress(progressRounded);
+    // BLE送信（進捗 + 残り距離）
+    sendProgress(progressRounded, dist);
   }
 
   function onPositionError(err) {
@@ -743,7 +748,7 @@ function initApp() {
     $progressValue.textContent = '100.000';
     $progressBar.style.width = '100%';
     $progressDistance.textContent = 'ゴール！';
-    sendProgress(100000);
+    sendProgress(100000, 0);
     stopTracking();
   });
 

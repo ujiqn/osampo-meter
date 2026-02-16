@@ -33,6 +33,8 @@ unsigned long goalStartTime = 0;
 unsigned long lastBlinkTime = 0;
 bool goalBlinkOn = true;
 unsigned long lastBatteryUpdate = 0;  // バッテリー表示更新タイマー
+uint32_t remainingDistance = 0;       // 残り距離(メートル)
+bool showDistance = false;            // 距離表示中フラグ
 
 // マイルストーン演出用メロディ (周波数, 長さms) - 短い3音ファンファーレ
 const int milestoneMelody[][2] = {
@@ -67,6 +69,10 @@ class ProgressCallbacks : public BLECharacteristicCallbacks {
       if (val > 100000) val = 100000;
       prevProgress = currentProgress;
       currentProgress = val;
+    }
+    if (len >= 8) {
+      // 残り距離(メートル) uint32_t little-endian
+      remainingDistance = data[4] | (data[5] << 8) | (data[6] << 16) | (data[7] << 24);
     }
   }
 };
@@ -158,6 +164,39 @@ void drawGoal() {
 
   M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
   M5.Lcd.drawString("%", M5.Lcd.width() / 2, M5.Lcd.height() / 2 + 55);
+}
+
+void drawDistance() {
+  M5.Lcd.fillScreen(TFT_BLACK);
+  M5.Lcd.setTextDatum(MC_DATUM);
+
+  // 「のこり」ラベル
+  M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
+  M5.Lcd.setTextSize(1);
+  M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+  M5.Lcd.drawString("のこり", M5.Lcd.width() / 2, 25);
+
+  // 距離の数字を大きく表示
+  M5.Lcd.setFont(&fonts::Font4);
+  M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
+  char buf[32];
+  if (remainingDistance >= 1000) {
+    M5.Lcd.setTextSize(2);
+    snprintf(buf, sizeof(buf), "%.1f", remainingDistance / 1000.0);
+    M5.Lcd.drawString(buf, M5.Lcd.width() / 2, M5.Lcd.height() / 2 + 5);
+    // 単位
+    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.drawString("km", M5.Lcd.width() / 2, M5.Lcd.height() - 20);
+  } else {
+    M5.Lcd.setTextSize(2);
+    snprintf(buf, sizeof(buf), "%lu", (unsigned long)remainingDistance);
+    M5.Lcd.drawString(buf, M5.Lcd.width() / 2, M5.Lcd.height() / 2 + 5);
+    // 単位
+    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.drawString("m", M5.Lcd.width() / 2, M5.Lcd.height() - 20);
+  }
 }
 
 // --- 音・振動 ---
@@ -254,6 +293,16 @@ void loop() {
     return;
   }
 
+  // ボタンAで残り距離⇔進捗をトグル切替（進捗表示中のみ）
+  if (M5.BtnA.wasPressed() && currentState == STATE_PROGRESS) {
+    showDistance = !showDistance;
+    if (showDistance) {
+      drawDistance();
+    } else {
+      drawProgress(currentProgress);
+    }
+  }
+
   // ゴール演出中
   if (currentState == STATE_GOAL) {
     unsigned long now = millis();
@@ -274,8 +323,10 @@ void loop() {
 
   // 進捗更新チェック
   if (currentProgress != prevProgress || currentState == STATE_CONNECTED) {
-    // 画面更新
-    drawProgress(currentProgress);
+    // 画面更新（距離表示中は進捗画面を上書きしない）
+    if (!showDistance) {
+      drawProgress(currentProgress);
+    }
     currentState = STATE_PROGRESS;
 
     // 10%刻みのマイルストーンチェック (10000 = 10.000%)
