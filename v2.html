@@ -256,7 +256,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.10</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.11</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -894,8 +894,10 @@ function initApp() {
 
     isRunning = true;
     startDistance = null; maxProgress = 0; lastSentProgress = -1;
-    nextStationIndex = 0;
     passedStations = new Array(stations.length).fill(false);
+    // 出発駅は最初から通過済み（到着判定不要）
+    passedStations[0] = true;
+    nextStationIndex = 1;
 
     $btnStart.textContent = 'ストップ';
     $btnStart.classList.remove('btn-start'); $btnStart.classList.add('btn-stop');
