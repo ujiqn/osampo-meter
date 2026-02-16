@@ -74,14 +74,14 @@ bool showDistance = false;
 // 愛の挨拶 (Salut d'Amour) Op.12 終結部
 // ドシ♭ラーソファレーミーファーー
 const int salutDamourEnding[][2] = {
-  {523, 250},   // C5 (ド)
-  {466, 250},   // Bb4 (シ♭)
-  {440, 500},   // A4 (ラー)
-  {392, 250},   // G4 (ソ)
-  {349, 250},   // F4 (ファ)
-  {294, 500},   // D4 (レー)
-  {330, 500},   // E4 (ミー)
-  {349, 900},   // F4 (ファーー)
+  {1047, 250},  // C6 (ド)
+  {932, 250},   // Bb5 (シ♭)
+  {880, 500},   // A5 (ラー)
+  {784, 250},   // G5 (ソ)
+  {698, 250},   // F5 (ファ)
+  {587, 500},   // D5 (レー)
+  {659, 500},   // E5 (ミー)
+  {698, 900},   // F5 (ファーー)
 };
 const int salutEndLen = 8;
 
@@ -530,6 +530,12 @@ void loop() {
   }
 
   // 進捗更新
+  // STATE_CONNECTEDでv2Modeがまだfalseなら駅名データ待ち（画面更新しない）
+  if (currentState == STATE_CONNECTED && !v2Mode) {
+    delay(50);
+    return;
+  }
+
   if (currentProgress != prevProgress || currentState == STATE_CONNECTED) {
 
     // v2: 駅通過検知（ゴール時は駅到着をスキップしてゴール演出へ）

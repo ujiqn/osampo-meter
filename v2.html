@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>おさんぽでんしゃ</title>
+<title>お散歩列車</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -252,7 +252,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 おさんぽでんしゃ</h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.4</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -732,7 +732,8 @@ function initApp() {
 
   function onBleDisconnected() {
     bleCharacteristic = null;
-    $bleBadge.textContent = 'BLE切断'; $bleBadge.classList.remove('connected');
+    bleDevice = null;
+    $bleBadge.textContent = 'BLE未接続'; $bleBadge.classList.remove('connected');
     $btnBle.textContent = 'BLE接続'; $btnBle.disabled = false;
     if (isRunning) stopTracking();
   }
