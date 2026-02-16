@@ -495,15 +495,9 @@ function initApp() {
       renderRoute();
       setTimeout(() => stopTracking(), 500);
     } else {
-      // 中間駅通過
+      // 中間駅通過 — 進捗はGPSのままで、駅の通過状態だけ更新
       renderRoute();
-      // 進捗を駅ベースで補正
-      const stationProgress = ((idx + 1) / stations.length) * 100000;
-      if (stationProgress > maxProgress) {
-        maxProgress = Math.round(stationProgress);
-        $progressValue.textContent = (maxProgress / 1000).toFixed(3);
-        drawTrainBar(maxProgress, nextStationIndex, stations.length);
-      }
+      lastSentProgress = -1; // 次のBLE送信を強制
       sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length);
     }
   }
