@@ -256,7 +256,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.9</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.10</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -383,6 +383,17 @@ function initApp() {
       const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (Array.isArray(d) && d.length > 0) stations = d;
     } catch(e) {}
+    ensureStartStation();
+  }
+  function ensureStartStation() {
+    if (!stations.length || !stations[0].isStartStation) {
+      stations.unshift({
+        id: 'start_' + Date.now(),
+        name: 'おうち',
+        lat: null, lng: null,
+        isStartStation: true
+      });
+    }
   }
   function addStation(name, lat, lng) {
     stations.push({ id: genId(), name, lat, lng });
@@ -397,7 +408,8 @@ function initApp() {
     if (s) { s.name = newName; saveStations(); renderAll(); }
   }
   function moveStation(fromIdx, toIdx) {
-    if (toIdx < 0 || toIdx >= stations.length) return;
+    // 出発駅(index 0)の位置には移動しない
+    if (toIdx < 1 || toIdx >= stations.length) return;
     const [item] = stations.splice(fromIdx, 1);
     stations.splice(toIdx, 0, item);
     saveStations(); renderAll();
@@ -414,7 +426,8 @@ function initApp() {
   function renderRoute() {
     $routePanel.innerHTML = '';
 
-    if (stations.length === 0) {
+    const routeStations = stations.filter(s => !s.isStartStation);
+    if (routeStations.length === 0) {
       $routePanel.innerHTML = `
         <div class="empty-route">
           <div class="empty-route-icon">🚂</div>
@@ -442,8 +455,9 @@ function initApp() {
       if (isNext) li.classList.add('next');
       if (isStart) li.classList.add('start');
 
-      const distText = i > 0
-        ? formatDist(haversineDistance(stations[i-1].lat, stations[i-1].lng, s.lat, s.lng))
+      const prev = i > 0 ? stations[i-1] : null;
+      const distText = (prev && prev.lat != null && s.lat != null)
+        ? formatDist(haversineDistance(prev.lat, prev.lng, s.lat, s.lng))
         : '';
 
       // 強制通過ボタンの表示条件（出発駅には表示しない）
@@ -459,19 +473,20 @@ function initApp() {
         </div>
         <div class="route-info">
           <div class="route-name">${s.name}駅</div>
-          <div class="route-sub">${isStart ? 'スタート地点' : (isPassed ? 'つうか!' : distText)}</div>
+          <div class="route-sub">${isStart ? (isRunning ? 'スタート地点' : 'しゅっぱつ時の現在地') : (isPassed ? 'つうか!' : distText)}</div>
         </div>
         <button class="btn-arrive ${btnClass} ${showArrive ? 'show' : ''}" data-idx="${i}">${btnText}</button>
       `;
 
       // 出発駅の名前変更（タップで編集）
-      if (isStart && isRunning) {
+      if (isStart) {
         const nameEl = li.querySelector('.route-name');
         nameEl.style.cursor = 'pointer';
         nameEl.addEventListener('click', () => {
           const newName = prompt('えきのなまえ', s.name);
           if (newName && newName.trim()) {
             s.name = newName.trim().slice(0, 6);
+            saveStations();
             renderRoute();
           }
         });
@@ -578,11 +593,13 @@ function initApp() {
   // ==================== 設定: 駅リスト描画 ====================
   function renderSettingsStations() {
     $settingsStationList.innerHTML = '';
-    stations.forEach((s, i) => {
+    // 出発駅は設定画面に表示しない
+    const settingsStations = stations.filter(s => !s.isStartStation);
+    settingsStations.forEach((s, i) => {
       const li = document.createElement('li');
       li.className = 'ss-item';
       const isFirst = i === 0;
-      const isLast = i === stations.length - 1;
+      const isLast = i === settingsStations.length - 1;
 
       li.innerHTML = `
         <span class="ss-num">${i + 1}</span>
@@ -594,12 +611,13 @@ function initApp() {
         </div>
       `;
 
-      // 並べ替え
+      // 並べ替え（出発駅の分だけインデックスをオフセット）
+      const realIdx = stations.indexOf(s);
       li.querySelectorAll('.ss-btn[data-dir]').forEach(btn => {
         const handler = e => {
           e.preventDefault(); e.stopPropagation();
           if (btn.disabled) return;
-          moveStation(i, btn.dataset.dir === 'up' ? i - 1 : i + 1);
+          moveStation(realIdx, btn.dataset.dir === 'up' ? realIdx - 1 : realIdx + 1);
         };
         btn.addEventListener('click', handler);
         btn.addEventListener('touchend', handler);
@@ -644,10 +662,12 @@ function initApp() {
     stationMarkers.forEach(m => m.setMap(null));
     stationMarkers = [];
     if (routeLine) { routeLine.setMap(null); routeLine = null; }
-    if (stations.length === 0) return;
+    // 地図には座標が有効な駅のみ表示（出発駅は座標がnullなので除外される）
+    const mapStations = stations.filter(s => s.lat != null && s.lng != null);
+    if (mapStations.length === 0) return;
 
-    stations.forEach((s, i) => {
-      const isLast = i === stations.length - 1;
+    mapStations.forEach((s, i) => {
+      const isLast = i === mapStations.length - 1;
       const marker = new google.maps.Marker({
         position: { lat: s.lat, lng: s.lng }, map,
         label: { text: isLast ? '★' : String(i + 1), color: '#fff', fontSize: '11px', fontWeight: 'bold' },
@@ -662,9 +682,9 @@ function initApp() {
       stationMarkers.push(marker);
     });
 
-    if (stations.length >= 2) {
+    if (mapStations.length >= 2) {
       routeLine = new google.maps.Polyline({
-        path: stations.map(s => ({ lat: s.lat, lng: s.lng })),
+        path: mapStations.map(s => ({ lat: s.lat, lng: s.lng })),
         strokeColor: '#E63946', strokeOpacity: 0.7, strokeWeight: 4, geodesic: true,
         icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '15px' }]
       });
@@ -672,7 +692,7 @@ function initApp() {
     }
 
     const bounds = new google.maps.LatLngBounds();
-    stations.forEach(s => bounds.extend({ lat: s.lat, lng: s.lng }));
+    mapStations.forEach(s => bounds.extend({ lat: s.lat, lng: s.lng }));
     map.fitBounds(bounds, 40);
   }
 
@@ -769,19 +789,28 @@ function initApp() {
   // ==================== BLE送信 ====================
   // 各駅のルート上の位置(0-100)を計算
   function calcStationProgressPcts() {
-    if (stations.length === 0) return [];
-    if (stations.length === 1) return [100];
+    // 座標が有効な駅のみで計算
+    const validStations = stations.filter(s => s.lat != null && s.lng != null);
+    if (validStations.length === 0) return stations.map(() => 0);
+    if (validStations.length === 1) return stations.map((s, i) => s.lat != null ? 100 : 0);
     // 累積距離を計算
     const cumDist = [0];
-    for (let i = 1; i < stations.length; i++) {
+    for (let i = 1; i < validStations.length; i++) {
       cumDist.push(cumDist[i-1] + haversineDistance(
-        stations[i-1].lat, stations[i-1].lng,
-        stations[i].lat, stations[i].lng
+        validStations[i-1].lat, validStations[i-1].lng,
+        validStations[i].lat, validStations[i].lng
       ));
     }
     const totalDist = cumDist[cumDist.length - 1];
     if (totalDist === 0) return stations.map(() => 0);
-    return cumDist.map(d => Math.round((d / totalDist) * 100));
+    // 全stationsに対応するpct配列を返す
+    let vi = 0;
+    return stations.map(s => {
+      if (s.lat == null) return 0;
+      const pct = Math.round((cumDist[vi] / totalDist) * 100);
+      vi++;
+      return pct;
+    });
   }
 
   async function sendStationNames() {
@@ -845,25 +874,22 @@ function initApp() {
   });
 
   async function startTracking() {
-    if (stations.length === 0) return;
+    const routeStations = stations.filter(s => !s.isStartStation);
+    if (routeStations.length === 0) return;
 
-    // 現在地を取得して出発駅を先頭に挿入
+    // 現在地を取得して出発駅の座標を設定
     try {
       const pos = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject,
           { enableHighAccuracy: true, timeout: 10000 });
       });
-      const startStation = {
-        id: 'start_' + Date.now(),
-        name: 'おうち',
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        isStartStation: true
-      };
-      stations.unshift(startStation);
+      const start = stations.find(s => s.isStartStation);
+      if (start) {
+        start.lat = pos.coords.latitude;
+        start.lng = pos.coords.longitude;
+      }
     } catch(e) {
       console.error('現在地取得失敗:', e);
-      // 取得失敗時はそのまま続行
     }
 
     isRunning = true;
@@ -896,8 +922,9 @@ function initApp() {
     if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
     startDistance = null; maxProgress = 0;
 
-    // 出発駅を除去
-    stations = stations.filter(s => !s.isStartStation);
+    // 出発駅の座標をリセット
+    const start = stations.find(s => s.isStartStation);
+    if (start) { start.lat = null; start.lng = null; }
 
     $btnStart.textContent = 'しゅっぱつ!';
     $btnStart.classList.remove('btn-stop'); $btnStart.classList.add('btn-start');
@@ -1095,7 +1122,11 @@ function initApp() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
   function formatDist(m) { return m >= 1000 ? (m/1000).toFixed(1) + ' km' : Math.round(m) + ' m'; }
-  function updateStartButton() { $btnStart.disabled = stations.length === 0; }
+  function updateStartButton() {
+    // 出発駅以外に1つ以上の駅が必要
+    const routeStations = stations.filter(s => !s.isStartStation);
+    $btnStart.disabled = routeStations.length === 0;
+  }
 
   // ==================== 初期化 ====================
   loadStations();
