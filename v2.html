@@ -252,7 +252,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.6</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.7</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -533,11 +533,20 @@ function initApp() {
     });
     placesService = new google.maps.places.PlacesService(map);
 
-    // 現在地
+    // 現在地を表示
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         map.setCenter(loc); map.setZoom(16);
+        currentMarker = new google.maps.Marker({
+          position: loc, map,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8, fillColor: '#4285F4', fillOpacity: 1,
+            strokeColor: '#fff', strokeWeight: 2,
+          },
+          title: '現在地'
+        });
       }, () => {}, { enableHighAccuracy: true });
     }
 
@@ -954,10 +963,38 @@ function initApp() {
     else maxProgress = progressRounded;
 
     $progressValue.textContent = (progressRounded / 1000).toFixed(3);
-    $progressRemaining.textContent = 'ゴールまで ' + formatDist(distToFinal)
-      + ' | raw:' + (progress / 1000).toFixed(1)
-      + ' 出発' + Math.round(distToFirst) + 'm'
-      + ' #' + gpsUpdateCount;
+
+    // デバッグ: calcRouteProgressの内部値を表示
+    let debugInfo = '';
+    if (stations.length >= 2) {
+      const segDists = [];
+      let totalD = 0;
+      for (let i = 0; i < stations.length - 1; i++) {
+        const d = haversineDistance(stations[i].lat, stations[i].lng, stations[i+1].lat, stations[i+1].lng);
+        segDists.push(d);
+        totalD += d;
+      }
+      const segStart = [0];
+      for (let i = 0; i < segDists.length; i++) segStart.push(segStart[i] + segDists[i]);
+
+      let bestD = Infinity, bestC = 0, bestSeg = -1, bestT = 0;
+      for (let i = 0; i < segDists.length; i++) {
+        const proj = projectOntoSegment(lat, lng,
+          stations[i].lat, stations[i].lng,
+          stations[i+1].lat, stations[i+1].lng);
+        if (proj.dist < bestD) {
+          bestD = proj.dist;
+          bestC = segStart[i] + proj.t * segDists[i];
+          bestSeg = i;
+          bestT = proj.t;
+        }
+      }
+      debugInfo = ' seg' + bestSeg + ' t=' + bestT.toFixed(2) + ' d=' + Math.round(bestD) + 'm cum=' + Math.round(bestC) + '/' + Math.round(totalD);
+    }
+
+    $progressRemaining.textContent = 'ゴール' + formatDist(distToFinal)
+      + ' raw:' + (progress / 1000).toFixed(1)
+      + debugInfo;
     drawTrainBar(progressRounded, nextStationIndex, stations.length);
     sendProgressV2(progressRounded, distToNext, distToFinal, nextStationIndex, stations.length);
   }
