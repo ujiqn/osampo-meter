@@ -137,11 +137,24 @@
   }
   .station-reorder button {
     width: 32px; height: 28px; border: 1px solid #CBD5E0; background: #fff;
-    color: #4A5568; font-size: 14px; cursor: pointer; border-radius: 6px;
+    color: transparent; font-size: 0; cursor: pointer; border-radius: 6px;
     display: flex; align-items: center; justify-content: center; padding: 0;
+    position: relative;
     -webkit-tap-highlight-color: rgba(66,153,225,0.3);
   }
-  .station-reorder button:active { background: #4299E1; color: #fff; border-color: #4299E1; }
+  .station-reorder button::after {
+    content: ''; display: block;
+    width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+  }
+  .station-reorder button[data-dir="up"]::after {
+    border-bottom: 7px solid #4A5568;
+  }
+  .station-reorder button[data-dir="down"]::after {
+    border-top: 7px solid #4A5568;
+  }
+  .station-reorder button:active { background: #4299E1; border-color: #4299E1; }
+  .station-reorder button:active::after { border-bottom-color: #fff; border-top-color: #fff; }
   .station-reorder button:disabled { opacity: 0.15; cursor: not-allowed; }
   .station-delete {
     width: 24px; height: 24px; border: none; background: transparent;
