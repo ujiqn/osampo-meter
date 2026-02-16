@@ -133,15 +133,16 @@
   }
   /* 並べ替えボタン */
   .station-reorder {
-    display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; margin-right: 4px;
+    display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; margin-right: 6px;
   }
   .station-reorder button {
-    width: 22px; height: 16px; border: none; background: #EDF2F7;
-    color: #718096; font-size: 10px; cursor: pointer; border-radius: 3px;
+    width: 32px; height: 28px; border: 1px solid #CBD5E0; background: #fff;
+    color: #4A5568; font-size: 14px; cursor: pointer; border-radius: 6px;
     display: flex; align-items: center; justify-content: center; padding: 0;
+    -webkit-tap-highlight-color: rgba(66,153,225,0.3);
   }
-  .station-reorder button:active { background: #4299E1; color: #fff; }
-  .station-reorder button:disabled { opacity: 0.2; cursor: not-allowed; }
+  .station-reorder button:active { background: #4299E1; color: #fff; border-color: #4299E1; }
+  .station-reorder button:disabled { opacity: 0.15; cursor: not-allowed; }
   .station-delete {
     width: 24px; height: 24px; border: none; background: transparent;
     color: #CBD5E0; font-size: 16px; cursor: pointer; flex-shrink: 0;
@@ -482,11 +483,12 @@ function initApp() {
         ? formatDist(haversineDistance(stations[i-1].lat, stations[i-1].lng, s.lat, s.lng))
         : '';
 
+      const showReorder = stations.length >= 2;
       li.innerHTML = `
-        <div class="station-reorder">
+        ${showReorder ? `<div class="station-reorder">
           <button data-dir="up" ${isFirst ? 'disabled' : ''}>▲</button>
           <button data-dir="down" ${isLast ? 'disabled' : ''}>▼</button>
-        </div>
+        </div>` : ''}
         <div class="station-line">
           <div class="track-top"></div>
           <div class="station-dot"></div>
@@ -501,13 +503,16 @@ function initApp() {
 
       // 並べ替えボタン
       li.querySelectorAll('.station-reorder button').forEach(btn => {
-        btn.addEventListener('click', e => {
+        const handler = e => {
+          e.preventDefault();
           e.stopPropagation();
-          if (isRunning) return;
+          if (btn.disabled || isRunning) return;
           const dir = btn.dataset.dir;
           if (dir === 'up') moveStation(i, i - 1);
           else moveStation(i, i + 1);
-        });
+        };
+        btn.addEventListener('click', handler);
+        btn.addEventListener('touchend', handler);
       });
 
       // 駅名タップで編集
