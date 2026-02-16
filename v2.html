@@ -252,7 +252,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.4</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.5</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -857,13 +857,15 @@ function initApp() {
   }
 
   // 点Pから線分AB上への射影位置(0-1)と距離を返す
+  // 経度方向にcos(lat)補正をかけてスケール差を吸収
   function projectOntoSegment(pLat, pLng, aLat, aLng, bLat, bLng) {
-    const apLat = pLat - aLat, apLng = pLng - aLng;
-    const abLat = bLat - aLat, abLng = bLng - aLng;
+    const cosLat = Math.cos(((aLat + bLat) / 2) * Math.PI / 180);
+    const apLat = pLat - aLat, apLng = (pLng - aLng) * cosLat;
+    const abLat = bLat - aLat, abLng = (bLng - aLng) * cosLat;
     const ab2 = abLat * abLat + abLng * abLng;
     if (ab2 === 0) return { t: 0, dist: haversineDistance(pLat, pLng, aLat, aLng) };
     const t = Math.max(0, Math.min(1, (apLat * abLat + apLng * abLng) / ab2));
-    const projLat = aLat + t * abLat, projLng = aLng + t * abLng;
+    const projLat = aLat + t * (bLat - aLat), projLng = aLng + t * (bLng - aLng);
     return { t, dist: haversineDistance(pLat, pLng, projLat, projLng) };
   }
 
