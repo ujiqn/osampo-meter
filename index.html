@@ -636,7 +636,6 @@ function initApp() {
 
   function startTracking() {
     if (!destination) return;
-    if (!testMode && !bleCharacteristic) return;
 
     isRunning = true;
     startDistance = null;
@@ -792,8 +791,7 @@ function initApp() {
   }
 
   function updateStartButton() {
-    const bleReady = testMode || bleCharacteristic;
-    $btnStart.disabled = !(destination && bleReady);
+    $btnStart.disabled = !destination;
   }
 }
 
