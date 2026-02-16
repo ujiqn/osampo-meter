@@ -160,6 +160,7 @@ class ProgressCallbacks : public BLECharacteristicCallbacks {
             stations[idx].progressPct = 0;
           }
           if (idx >= stationCount) stationCount = idx + 1;
+          totalStations = stationCount;  // drawProgressのv2判定用
         }
 
       } else if (cmd == 0x02) {
@@ -530,8 +531,9 @@ void loop() {
   }
 
   // 進捗更新
-  // STATE_CONNECTEDでv2Modeがまだfalseなら駅名データ待ち（画面更新しない）
-  if (currentState == STATE_CONNECTED && !v2Mode) {
+  // STATE_CONNECTEDでv2データが揃っていなければ画面更新しない
+  // (v2Modeがfalse、またはtotalStationsが0ならまだ駅名/進捗データ待ち)
+  if (currentState == STATE_CONNECTED && (!v2Mode || totalStations == 0)) {
     delay(50);
     return;
   }
