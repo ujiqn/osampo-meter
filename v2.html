@@ -75,15 +75,17 @@
   .route-item:last-child .route-name { color: #E63946; }
   .route-sub { font-size: 11px; color: #A0AEC0; margin-top: 1px; }
   .route-item.passed .route-sub { color: #68D391; }
-  /* 強制通過ボタン */
+  /* 強制到着・通過ボタン */
+  .route-btns { display: none; gap: 4px; flex-shrink: 0; }
+  .route-btns.show { display: flex; }
   .btn-arrive {
-    padding: 6px 12px; border: none; border-radius: 8px;
-    font-size: 12px; font-weight: 700; cursor: pointer;
-    flex-shrink: 0; display: none;
+    padding: 5px 8px; border: none; border-radius: 6px;
+    font-size: 11px; font-weight: 700; cursor: pointer;
   }
-  .btn-arrive.show { display: block; }
   .btn-arrive.station { background: #EBF8FF; color: #2B6CB0; }
   .btn-arrive.station:active { background: #4299E1; color: #fff; }
+  .btn-arrive.skip { background: #F7FAFC; color: #718096; border: 1px solid #E2E8F0; }
+  .btn-arrive.skip:active { background: #A0AEC0; color: #fff; }
   .btn-arrive.goal { background: linear-gradient(135deg, #F6AD55, #E53E3E); color: #fff; }
   .btn-arrive.goal:active { background: #E53E3E; }
 
@@ -256,7 +258,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.11</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.12</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -460,10 +462,8 @@ function initApp() {
         ? formatDist(haversineDistance(prev.lat, prev.lng, s.lat, s.lng))
         : '';
 
-      // 強制通過ボタンの表示条件（出発駅には表示しない）
-      const showArrive = isRunning && !isPassed && !testMode && !isStart;
-      const btnClass = isLast ? 'goal' : 'station';
-      const btnText = isLast ? 'ゴール!' : 'とうちゃく';
+      // ボタン表示条件（出発駅には表示しない）
+      const showBtns = isRunning && !isPassed && !testMode && !isStart;
 
       li.innerHTML = `
         <div class="route-line">
@@ -473,9 +473,15 @@ function initApp() {
         </div>
         <div class="route-info">
           <div class="route-name">${s.name}駅</div>
-          <div class="route-sub">${isStart ? (isRunning ? 'スタート地点' : 'しゅっぱつ時の現在地') : (isPassed ? 'つうか!' : distText)}</div>
+          <div class="route-sub">${isStart ? (isRunning ? 'スタート地点' : 'しゅっぱつ時の現在地') : (isPassed ? (s._skipped ? '通過' : 'つうか!') : distText)}</div>
         </div>
-        <button class="btn-arrive ${btnClass} ${showArrive ? 'show' : ''}" data-idx="${i}">${btnText}</button>
+        <div class="route-btns ${showBtns ? 'show' : ''}">
+          ${isLast
+            ? `<button class="btn-arrive goal" data-action="arrive">ゴール!</button>`
+            : `<button class="btn-arrive skip" data-action="skip">通過</button>
+               <button class="btn-arrive station" data-action="arrive">到着</button>`
+          }
+        </div>
       `;
 
       // 出発駅の名前変更（タップで編集）
@@ -492,12 +498,15 @@ function initApp() {
         });
       }
 
-      // 強制通過ボタンのイベント
-      const arriveBtn = li.querySelector('.btn-arrive');
-      arriveBtn.addEventListener('click', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        forceArriveStation(i);
+      // 到着・通過ボタンのイベント
+      li.querySelectorAll('.btn-arrive').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          const action = btn.dataset.action;
+          if (action === 'skip') forceSkipStation(i);
+          else forceArriveStation(i);
+        });
       });
 
       ul.appendChild(li);
@@ -536,6 +545,28 @@ function initApp() {
       drawTrainBar(maxProgress, nextStationIndex, stations.length);
       sendProgressForced(maxProgress, 0, 0, nextStationIndex, stations.length);
     }
+  }
+
+  // ==================== 強制通過（エフェクトなし） ====================
+  function forceSkipStation(idx) {
+    if (!isRunning || passedStations[idx]) return;
+
+    passedStations[idx] = true;
+    stations[idx]._skipped = true;
+
+    // nextStationIndexを更新
+    while (nextStationIndex < stations.length && passedStations[nextStationIndex]) {
+      nextStationIndex++;
+    }
+    if (nextStationIndex >= stations.length) nextStationIndex = stations.length - 1;
+
+    // 進捗を微増してBLE送信（M5側の変化検知用）
+    if (maxProgress < 99999) maxProgress++;
+    renderRoute();
+    $progressValue.textContent = (maxProgress / 1000).toFixed(3);
+    drawTrainBar(maxProgress, nextStationIndex, stations.length);
+    // 通過：BLE送信するが到着エフェクトは鳴らさない（進捗値を微増するだけ）
+    sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length);
   }
 
   // ==================== 設定画面 ====================
@@ -924,9 +955,11 @@ function initApp() {
     if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
     startDistance = null; maxProgress = 0;
 
-    // 出発駅の座標をリセット
-    const start = stations.find(s => s.isStartStation);
-    if (start) { start.lat = null; start.lng = null; }
+    // 出発駅の座標をリセット & 通過フラグをクリア
+    stations.forEach(s => {
+      if (s.isStartStation) { s.lat = null; s.lng = null; }
+      delete s._skipped;
+    });
 
     $btnStart.textContent = 'しゅっぱつ!';
     $btnStart.classList.remove('btn-stop'); $btnStart.classList.add('btn-start');
