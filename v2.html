@@ -473,7 +473,7 @@ function initApp() {
         </div>
         <div class="route-info">
           <div class="route-name">${s.name}駅</div>
-          <div class="route-sub">${isStart ? (isRunning ? 'スタート地点' : 'しゅっぱつ時の現在地') : (isPassed ? (s._skipped ? '通過' : 'つうか!') : distText)}</div>
+          <div class="route-sub">${isStart ? (isRunning ? 'スタート地点' : 'しゅっぱつ時の現在地') : (isPassed ? (s._skipped ? '' : 'つうか!') : distText)}</div>
         </div>
         <div class="route-btns ${showBtns ? 'show' : ''}">
           ${isLast
