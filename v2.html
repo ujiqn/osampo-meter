@@ -252,7 +252,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.5</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.6</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -857,15 +857,15 @@ function initApp() {
   }
 
   // 点Pから線分AB上への射影位置(0-1)と距離を返す
-  // 経度方向にcos(lat)補正をかけてスケール差を吸収
   function projectOntoSegment(pLat, pLng, aLat, aLng, bLat, bLng) {
     const cosLat = Math.cos(((aLat + bLat) / 2) * Math.PI / 180);
-    const apLat = pLat - aLat, apLng = (pLng - aLng) * cosLat;
-    const abLat = bLat - aLat, abLng = (bLng - aLng) * cosLat;
-    const ab2 = abLat * abLat + abLng * abLng;
+    const apY = pLat - aLat, apX = (pLng - aLng) * cosLat;
+    const abY = bLat - aLat, abX = (bLng - aLng) * cosLat;
+    const ab2 = abY * abY + abX * abX;
     if (ab2 === 0) return { t: 0, dist: haversineDistance(pLat, pLng, aLat, aLng) };
-    const t = Math.max(0, Math.min(1, (apLat * abLat + apLng * abLng) / ab2));
-    const projLat = aLat + t * (bLat - aLat), projLng = aLng + t * (bLng - aLng);
+    const t = Math.max(0, Math.min(1, (apY * abY + apX * abX) / ab2));
+    const projLat = aLat + t * (bLat - aLat);
+    const projLng = aLng + t * (bLng - aLng);
     return { t, dist: haversineDistance(pLat, pLng, projLat, projLng) };
   }
 
@@ -873,35 +873,46 @@ function initApp() {
   function calcRouteProgress(lat, lng) {
     if (stations.length < 2) return { progress: 0, distToFinal: 0, distToNext: 0 };
 
-    // 各区間の距離と累積距離
+    // 各区間の距離
     const segDists = [];
-    const cumDist = [0];
-    for (let i = 1; i < stations.length; i++) {
-      const d = haversineDistance(stations[i-1].lat, stations[i-1].lng, stations[i].lat, stations[i].lng);
+    let totalDist = 0;
+    for (let i = 0; i < stations.length - 1; i++) {
+      const d = haversineDistance(stations[i].lat, stations[i].lng, stations[i+1].lat, stations[i+1].lng);
       segDists.push(d);
-      cumDist.push(cumDist[i-1] + d);
+      totalDist += d;
     }
-    const totalDist = cumDist[cumDist.length - 1];
     if (totalDist === 0) return { progress: 0, distToFinal: 0, distToNext: 0 };
 
+    // 各区間の開始位置（累積距離）
+    const segStart = [0];
+    for (let i = 0; i < segDists.length; i++) {
+      segStart.push(segStart[i] + segDists[i]);
+    }
+
     // 全区間への射影で最も近い場所を見つける
-    let bestDist = Infinity, bestCum = 0;
-    for (let i = 0; i < stations.length - 1; i++) {
+    let bestDist = Infinity;
+    let bestCum = 0;
+    for (let i = 0; i < segDists.length; i++) {
       const proj = projectOntoSegment(lat, lng,
         stations[i].lat, stations[i].lng,
         stations[i+1].lat, stations[i+1].lng);
       if (proj.dist < bestDist) {
         bestDist = proj.dist;
-        bestCum = cumDist[i] + proj.t * segDists[i];
+        bestCum = segStart[i] + proj.t * segDists[i];
       }
     }
 
     const progress = (bestCum / totalDist) * 100000;
-    const distToFinal = haversineDistance(lat, lng, stations[stations.length-1].lat, stations[stations.length-1].lng);
+    const distToFinal = haversineDistance(lat, lng,
+      stations[stations.length-1].lat, stations[stations.length-1].lng);
     const nextSt = stations[Math.min(nextStationIndex, stations.length - 1)];
     const distToNext = haversineDistance(lat, lng, nextSt.lat, nextSt.lng);
 
-    return { progress: Math.max(0, Math.min(99999, progress)), distToFinal, distToNext };
+    return {
+      progress: Math.max(0, Math.min(99999, Math.round(progress))),
+      distToFinal,
+      distToNext
+    };
   }
 
   let gpsUpdateCount = 0;
@@ -944,8 +955,9 @@ function initApp() {
 
     $progressValue.textContent = (progressRounded / 1000).toFixed(3);
     $progressRemaining.textContent = 'ゴールまで ' + formatDist(distToFinal)
-      + ' | GPS#' + gpsUpdateCount + ' ±' + Math.round(accuracy) + 'm'
-      + ' 出発駅' + Math.round(distToFirst) + 'm';
+      + ' | raw:' + (progress / 1000).toFixed(1)
+      + ' 出発' + Math.round(distToFirst) + 'm'
+      + ' #' + gpsUpdateCount;
     drawTrainBar(progressRounded, nextStationIndex, stations.length);
     sendProgressV2(progressRounded, distToNext, distToFinal, nextStationIndex, stations.length);
   }
