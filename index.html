@@ -33,6 +33,11 @@
     font-size: 18px;
     white-space: nowrap;
   }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
   .ble-status {
     font-size: 12px;
     padding: 4px 10px;
@@ -42,6 +47,21 @@
   }
   .ble-status.connected { background: #0a6e3a; }
   .ble-status.test-mode { background: #b45309; }
+  .btn-test-small {
+    font-size: 10px;
+    padding: 3px 8px;
+    border: 1px solid #666;
+    border-radius: 8px;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-test-small.active {
+    background: #b45309;
+    border-color: #b45309;
+    color: #fff;
+  }
 
   /* 検索バー */
   .search-bar {
@@ -223,10 +243,6 @@
     background: #2563eb;
     color: #fff;
   }
-  .btn-test {
-    background: #b45309;
-    color: #fff;
-  }
   .btn-start {
     background: #16a34a;
     color: #fff;
@@ -246,7 +262,10 @@
 
 <div class="header">
   <h1>🚶 おさんぽメーター</h1>
-  <span class="ble-status" id="bleStatus">BLE未接続</span>
+  <div class="header-right">
+    <span class="ble-status" id="bleStatus">BLE未接続</span>
+    <button class="btn-test-small" id="btnTest">TEST</button>
+  </div>
 </div>
 
 <!-- 検索バー -->
@@ -276,7 +295,6 @@
 
 <div class="controls">
   <button class="btn btn-ble" id="btnBle">BLE接続</button>
-  <button class="btn btn-test" id="btnTest">テスト</button>
   <button class="btn btn-start" id="btnStart" disabled>スタート</button>
   <button class="btn btn-goal" id="btnGoal" style="display:none;">ゴール！</button>
 </div>
@@ -522,7 +540,8 @@ function initApp() {
       testMode = false;
       if (testTimer) { clearInterval(testTimer); testTimer = null; }
       testProgress = 0;
-      $btnTest.textContent = 'テスト';
+      $btnTest.textContent = 'TEST';
+      $btnTest.classList.remove('active');
       $bleStatus.textContent = bleCharacteristic ? 'BLE接続済み' : 'BLE未接続';
       $bleStatus.classList.remove('test-mode');
       $progressValue.textContent = '0.000';
@@ -533,7 +552,8 @@ function initApp() {
       // テスト開始: 1分(60秒)で0→100%、100msごとに更新
       testMode = true;
       testProgress = 0;
-      $btnTest.textContent = 'テスト中';
+      $btnTest.textContent = 'TEST';
+      $btnTest.classList.add('active');
       $bleStatus.textContent = 'テストモード';
       $bleStatus.classList.add('test-mode');
 
