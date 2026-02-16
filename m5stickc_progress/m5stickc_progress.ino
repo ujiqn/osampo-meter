@@ -205,27 +205,50 @@ void drawBattery() {
 
 void drawProgress(uint32_t progress) {
   M5.Lcd.fillScreen(TFT_BLACK);
-  M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
-
-  float pct = progress / 1000.0;
-  char buf[16];
-  snprintf(buf, sizeof(buf), "%.3f", pct);
-
-  M5.Lcd.setFont(&fonts::Font4);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setTextDatum(MC_DATUM);
-  M5.Lcd.drawString(buf, M5.Lcd.width()/2, M5.Lcd.height()/2 - 15);
-
-  M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
-  M5.Lcd.setTextSize(1);
-  M5.Lcd.drawString("%", M5.Lcd.width()/2, M5.Lcd.height()/2 + 35);
+  int W = M5.Lcd.width(), H = M5.Lcd.height();
 
   if (v2Mode && totalStations > 0) {
+    // === v2: 1画面統合レイアウト ===
+    // 上段: X.XXX% (大きく)
+    float pct = progress / 1000.0;
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%.3f%%", pct);
+    M5.Lcd.setFont(&fonts::Font4);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextDatum(MC_DATUM);
+    M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
+    M5.Lcd.drawString(buf, W/2, 30);
+
+    // 中段: つぎは XX駅 (小さめ)
+    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_20);
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(0x8410, TFT_BLACK);  // グレー
+    M5.Lcd.drawString("次は", W/2 - 48, H/2 + 22);
+    M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
+    if (currentNextStation < stationCount) {
+      M5.Lcd.drawString(stations[currentNextStation].name, W/2 + 42, H/2 + 22);
+    } else {
+      M5.Lcd.drawString("---", W/2 + 42, H/2 + 22);
+    }
+
+    // 下段: 電車メーター
     drawTrainProgressBar(progress);
   } else {
-    // v1: シンプルなプログレスバー
-    int barY = M5.Lcd.height() - 20;
-    int barW = M5.Lcd.width() - 20;
+    // === v1: 従来レイアウト ===
+    float pct = progress / 1000.0;
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%.3f", pct);
+    M5.Lcd.setFont(&fonts::Font4);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextDatum(MC_DATUM);
+    M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
+    M5.Lcd.drawString(buf, W/2, H/2 - 15);
+    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.drawString("%", W/2, H/2 + 35);
+
+    int barY = H - 20;
+    int barW = W - 20;
     int filled = (int)(barW * progress / 100000.0);
     M5.Lcd.drawRect(9, barY-1, barW+2, 12, TFT_WHITE);
     if (filled > 0) M5.Lcd.fillRect(10, barY, filled, 10, TFT_CYAN);
@@ -274,7 +297,7 @@ void drawNextStation() {
   M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
   M5.Lcd.setTextSize(1);
   M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Lcd.drawString("つぎは", M5.Lcd.width()/2, 20);
+  M5.Lcd.drawString("次は", M5.Lcd.width()/2, 20);
 
   // 駅名
   M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -351,11 +374,8 @@ void drawGoal() {
   M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
   M5.Lcd.setTextSize(1);
   M5.Lcd.setTextDatum(MC_DATUM);
-  M5.Lcd.drawString("★ クリア！★", M5.Lcd.width()/2, M5.Lcd.height()/2 - 30);
-  M5.Lcd.setFont(&fonts::Font7);
-  M5.Lcd.drawString("100", M5.Lcd.width()/2, M5.Lcd.height()/2 + 20);
-  M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
-  M5.Lcd.drawString("%", M5.Lcd.width()/2, M5.Lcd.height()/2 + 55);
+  M5.Lcd.drawString("到着", M5.Lcd.width()/2, M5.Lcd.height()/2 - 20);
+  M5.Lcd.drawString("いってらっしゃい", M5.Lcd.width()/2, M5.Lcd.height()/2 + 20);
 }
 
 // --- 音楽再生 ---
@@ -460,27 +480,18 @@ void loop() {
     return;
   }
 
-  // ボタンA: 表示モード切替
-  if (M5.BtnA.wasPressed() && currentState == STATE_PROGRESS) {
-    if (v2Mode) {
-      // v2: 進捗 ↔ 次の駅
-      displayMode = (displayMode == DISPLAY_PROGRESS) ? DISPLAY_NEXT_STATION : DISPLAY_PROGRESS;
-      if (displayMode == DISPLAY_PROGRESS) drawProgress(currentProgress);
-      else drawNextStation();
-    } else {
-      // v1: 進捗 ↔ 残り距離
-      showDistance = !showDistance;
-      if (showDistance) drawDistance();
-      else drawProgress(currentProgress);
-    }
+  // ボタンA: v1のみ表示モード切替（v2は1画面統合なので不要）
+  if (M5.BtnA.wasPressed() && currentState == STATE_PROGRESS && !v2Mode) {
+    showDistance = !showDistance;
+    if (showDistance) drawDistance();
+    else drawProgress(currentProgress);
   }
 
   // 駅到着演出
   if (currentState == STATE_STATION_ARRIVED) {
     if (millis() - stationArrivedTime > 3000) {
       currentState = STATE_PROGRESS;
-      if (displayMode == DISPLAY_PROGRESS) drawProgress(currentProgress);
-      else drawNextStation();
+      drawProgress(currentProgress);
     }
     delay(50);
     return;
@@ -505,28 +516,25 @@ void loop() {
   // 進捗更新
   if (currentProgress != prevProgress || currentState == STATE_CONNECTED) {
 
-    // v2: 駅通過検知
+    // v2: 駅通過検知（ゴール時は駅到着をスキップしてゴール演出へ）
     if (v2Mode && currentNextStation > prevNextStation && prevNextStation < stationCount) {
-      // 駅に到着した！
-      currentState = STATE_STATION_ARRIVED;
-      stationArrivedTime = millis();
-      drawStationArrived();
-      playStationArrivalMelody(prevNextStation);
+      if (currentProgress < 100000) {
+        // 中間駅に到着
+        currentState = STATE_STATION_ARRIVED;
+        stationArrivedTime = millis();
+        drawStationArrived();
+        playStationArrivalMelody(prevNextStation);
+        prevNextStation = currentNextStation;
+        prevProgress = currentProgress;
+        return;
+      }
+      // ゴール時はprevNextStationだけ更新して、下のゴール処理へ進む
       prevNextStation = currentNextStation;
-      prevProgress = currentProgress;
-      return;
     }
 
     // 画面更新
     bool skipDraw = false;
-    if (v2Mode) {
-      if (displayMode == DISPLAY_NEXT_STATION) {
-        drawNextStation();
-        skipDraw = true;
-      }
-    } else {
-      if (showDistance) skipDraw = true;
-    }
+    if (!v2Mode && showDistance) skipDraw = true;
     if (!skipDraw) drawProgress(currentProgress);
 
     currentState = STATE_PROGRESS;

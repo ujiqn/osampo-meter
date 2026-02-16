@@ -491,14 +491,16 @@ function initApp() {
       $progressValue.textContent = '100.000';
       $progressRemaining.textContent = 'ゴール!';
       drawTrainBar(100000, stations.length, stations.length);
-      sendProgressV2(100000, 0, 0, stations.length - 1, stations.length);
+      sendProgressForced(100000, 0, 0, stations.length - 1, stations.length);
       renderRoute();
       setTimeout(() => stopTracking(), 500);
     } else {
-      // 中間駅通過 — 進捗はGPSのままで、駅の通過状態だけ更新
+      // 中間駅通過 — 進捗を+1してM5側の変化検知を確実にし、確実送信
+      if (maxProgress < 99999) maxProgress++;
       renderRoute();
-      lastSentProgress = -1; // 次のBLE送信を強制
-      sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length);
+      $progressValue.textContent = (maxProgress / 1000).toFixed(3);
+      drawTrainBar(maxProgress, nextStationIndex, stations.length);
+      sendProgressForced(maxProgress, 0, 0, nextStationIndex, stations.length);
     }
   }
 
@@ -767,6 +769,23 @@ function initApp() {
       v.setUint8(13, nextIdx); v.setUint8(14, totalSt); v.setUint8(15, 0);
       await bleCharacteristic.writeValueWithoutResponse(buf);
     } catch(err) { console.error('BLE送信エラー:', err); }
+  }
+
+  // 強制通過用: writeValueWithResponseで確実に送信
+  async function sendProgressForced(overallProgress, distNext, distFinal, nextIdx, totalSt) {
+    lastSentProgress = -1; // 次回の通常送信もブロックしない
+    if (!bleCharacteristic) return;
+    const clamped = Math.max(0, Math.min(100000, Math.round(overallProgress)));
+    try {
+      const buf = new ArrayBuffer(16);
+      const v = new DataView(buf);
+      v.setUint8(0, 0x00);
+      v.setUint32(1, clamped, true);
+      v.setUint32(5, Math.max(0, Math.round(distNext)), true);
+      v.setUint32(9, Math.max(0, Math.round(distFinal)), true);
+      v.setUint8(13, nextIdx); v.setUint8(14, totalSt); v.setUint8(15, 0);
+      await bleCharacteristic.writeValueWithResponse(buf);
+    } catch(err) { console.error('BLE強制送信エラー:', err); }
   }
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
