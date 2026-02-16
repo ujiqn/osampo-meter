@@ -59,6 +59,10 @@
   .route-item.passed .route-dot { border-color: #38A169; background: #38A169; }
   .route-item.passed .route-line .track { background: #38A169; }
   .route-item.next .route-dot { border-color: #4299E1; background: #4299E1; animation: pulse 1.5s infinite; }
+  .route-item.start .route-dot {
+    border-color: #4299E1; background: #4299E1; width: 20px; height: 20px;
+  }
+  .route-item.start .route-name { color: #4299E1; }
   .route-item:last-child .route-dot {
     border-color: #E63946; background: #fff; width: 22px; height: 22px; border-width: 4px;
   }
@@ -252,7 +256,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.8</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.9</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -430,18 +434,20 @@ function initApp() {
       const li = document.createElement('li');
       li.className = 'route-item';
       const isLast = i === stations.length - 1;
+      const isStart = s.isStartStation;
       const isPassed = isRunning && passedStations[i];
       const isNext = isRunning && i === nextStationIndex && !passedStations[i];
 
       if (isPassed) li.classList.add('passed');
       if (isNext) li.classList.add('next');
+      if (isStart) li.classList.add('start');
 
       const distText = i > 0
         ? formatDist(haversineDistance(stations[i-1].lat, stations[i-1].lng, s.lat, s.lng))
         : '';
 
-      // 強制通過ボタンの表示条件
-      const showArrive = isRunning && !isPassed && !testMode;
+      // 強制通過ボタンの表示条件（出発駅には表示しない）
+      const showArrive = isRunning && !isPassed && !testMode && !isStart;
       const btnClass = isLast ? 'goal' : 'station';
       const btnText = isLast ? 'ゴール!' : 'とうちゃく';
 
@@ -453,10 +459,23 @@ function initApp() {
         </div>
         <div class="route-info">
           <div class="route-name">${s.name}駅</div>
-          <div class="route-sub">${isPassed ? 'つうか!' : distText}</div>
+          <div class="route-sub">${isStart ? 'スタート地点' : (isPassed ? 'つうか!' : distText)}</div>
         </div>
         <button class="btn-arrive ${btnClass} ${showArrive ? 'show' : ''}" data-idx="${i}">${btnText}</button>
       `;
+
+      // 出発駅の名前変更（タップで編集）
+      if (isStart && isRunning) {
+        const nameEl = li.querySelector('.route-name');
+        nameEl.style.cursor = 'pointer';
+        nameEl.addEventListener('click', () => {
+          const newName = prompt('えきのなまえ', s.name);
+          if (newName && newName.trim()) {
+            s.name = newName.trim().slice(0, 6);
+            renderRoute();
+          }
+        });
+      }
 
       // 強制通過ボタンのイベント
       const arriveBtn = li.querySelector('.btn-arrive');
@@ -827,6 +846,26 @@ function initApp() {
 
   async function startTracking() {
     if (stations.length === 0) return;
+
+    // 現在地を取得して出発駅を先頭に挿入
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject,
+          { enableHighAccuracy: true, timeout: 10000 });
+      });
+      const startStation = {
+        id: 'start_' + Date.now(),
+        name: 'おうち',
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        isStartStation: true
+      };
+      stations.unshift(startStation);
+    } catch(e) {
+      console.error('現在地取得失敗:', e);
+      // 取得失敗時はそのまま続行
+    }
+
     isRunning = true;
     startDistance = null; maxProgress = 0; lastSentProgress = -1;
     nextStationIndex = 0;
@@ -856,6 +895,9 @@ function initApp() {
     isRunning = false;
     if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
     startDistance = null; maxProgress = 0;
+
+    // 出発駅を除去
+    stations = stations.filter(s => !s.isStartStation);
 
     $btnStart.textContent = 'しゅっぱつ!';
     $btnStart.classList.remove('btn-stop'); $btnStart.classList.add('btn-start');
