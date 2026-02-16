@@ -135,6 +135,8 @@ class ProgressCallbacks : public BLECharacteristicCallbacks {
         uint8_t totalSt = data[14];
 
         if (prog > 100000) prog = 100000;
+        uint8_t flags = (len >= 16) ? data[15] : 0;
+
         prevProgress = currentProgress;
         currentProgress = prog;
         distToNextStation = dNext;
@@ -143,6 +145,11 @@ class ProgressCallbacks : public BLECharacteristicCallbacks {
         currentNextStation = nextIdx;
         totalStations = totalSt;
         remainingDistance = dFinal;  // v1互換
+
+        // flags bit0: スキップ（到着演出なし）
+        if (flags & 0x01) {
+          prevNextStation = currentNextStation;  // 到着検知を抑制
+        }
 
       } else if (cmd == 0x01 && len >= 4) {
         // v2: 駅名登録

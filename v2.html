@@ -565,8 +565,8 @@ function initApp() {
     renderRoute();
     $progressValue.textContent = (maxProgress / 1000).toFixed(3);
     drawTrainBar(maxProgress, nextStationIndex, stations.length);
-    // 通過：BLE送信するが到着エフェクトは鳴らさない（進捗値を微増するだけ）
-    sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length);
+    // 通過：スキップフラグ(0x01)付きで送信 → M5側で到着演出を抑制
+    sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length, 0x01);
   }
 
   // ==================== 設定画面 ====================
@@ -863,7 +863,7 @@ function initApp() {
     } catch(err) { console.error('駅名送信エラー:', err); }
   }
 
-  async function sendProgressV2(overallProgress, distNext, distFinal, nextIdx, totalSt) {
+  async function sendProgressV2(overallProgress, distNext, distFinal, nextIdx, totalSt, flags) {
     const clamped = Math.max(0, Math.min(100000, Math.round(overallProgress)));
     if (clamped === lastSentProgress) return;
     lastSentProgress = clamped;
@@ -875,7 +875,7 @@ function initApp() {
       v.setUint32(1, clamped, true);
       v.setUint32(5, Math.max(0, Math.round(distNext)), true);
       v.setUint32(9, Math.max(0, Math.round(distFinal)), true);
-      v.setUint8(13, nextIdx); v.setUint8(14, totalSt); v.setUint8(15, 0);
+      v.setUint8(13, nextIdx); v.setUint8(14, totalSt); v.setUint8(15, flags || 0);
       await bleCharacteristic.writeValueWithoutResponse(buf);
     } catch(err) { console.error('BLE送信エラー:', err); }
   }
