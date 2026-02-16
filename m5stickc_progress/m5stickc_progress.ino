@@ -24,6 +24,7 @@
 
 struct StationInfo {
   char name[MAX_NAME_BYTES];
+  uint8_t progressPct;  // 0-100: ルート上の位置(%)
 };
 
 StationInfo stations[MAX_STATIONS];
@@ -76,21 +77,18 @@ const int stationChime[][2] = {
 };
 const int stationChimeLen = 4;
 
-// 愛の挨拶 (Salut d'Amour) 冒頭
-const int salutDamour[][2] = {
-  {659, 400}, {831, 200}, {880, 200}, {988, 400},
-  {880, 200}, {831, 200}, {659, 400}, {784, 600}
+// 愛の挨拶 (Salut d'Amour) Op.12 終結部
+// E major: 最後の穏やかな下降フレーズ → E(長音)で終止
+const int salutDamourEnding[][2] = {
+  {988, 300},   // B5
+  {880, 200},   // A5
+  {831, 200},   // G#5
+  {659, 300},   // E5
+  {0, 80},
+  {740, 200},   // F#5
+  {659, 600},   // E5 (長音で終止)
 };
-const int salutLen = 8;
-
-// トルコ行進曲 (Turkish March) 冒頭
-const int turkishMarch[][2] = {
-  {988, 120}, {880, 120}, {831, 120}, {880, 120},
-  {1319, 300}, {0, 100},
-  {1175, 120}, {1047, 120}, {988, 120}, {1047, 120},
-  {1568, 300}
-};
-const int turkishLen = 11;
+const int salutEndLen = 7;
 
 // v1用: マイルストーンメロディ (3音)
 const int milestoneMelody[][2] = {
@@ -147,12 +145,19 @@ class ProgressCallbacks : public BLECharacteristicCallbacks {
 
       } else if (cmd == 0x01 && len >= 4) {
         // v2: 駅名登録
+        // フォーマット: [0x01, idx, nameLen, name..., progressPct]
         v2Mode = true;
         uint8_t idx = data[1];
         uint8_t nameLen = data[2];
         if (idx < MAX_STATIONS && nameLen < MAX_NAME_BYTES) {
           memcpy(stations[idx].name, &data[3], nameLen);
           stations[idx].name[nameLen] = '\0';
+          // 駅名の後にprogressPct(0-100)が付加されている場合
+          if (len >= (size_t)(3 + nameLen + 1)) {
+            stations[idx].progressPct = data[3 + nameLen];
+          } else {
+            stations[idx].progressPct = 0;
+          }
           if (idx >= stationCount) stationCount = idx + 1;
         }
 
@@ -161,7 +166,10 @@ class ProgressCallbacks : public BLECharacteristicCallbacks {
         v2Mode = true;
         stationCount = 0;
         currentNextStation = 0;
-        memset(stations, 0, sizeof(stations));
+        for (int i = 0; i < MAX_STATIONS; i++) {
+          memset(stations[i].name, 0, MAX_NAME_BYTES);
+          stations[i].progressPct = 0;
+        }
       }
 
     } else if (len >= 4) {
@@ -219,16 +227,16 @@ void drawProgress(uint32_t progress) {
     M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
     M5.Lcd.drawString(buf, W/2, 30);
 
-    // 中段: つぎは XX駅 (小さめ)
-    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_20);
+    // 中段: 次は XX駅
+    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_24);
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(0x8410, TFT_BLACK);  // グレー
-    M5.Lcd.drawString("次は", W/2 - 48, H/2 + 22);
+    M5.Lcd.drawString("次は", W/2 - 55, H/2 + 22);
     M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
     if (currentNextStation < stationCount) {
-      M5.Lcd.drawString(stations[currentNextStation].name, W/2 + 42, H/2 + 22);
+      M5.Lcd.drawString(stations[currentNextStation].name, W/2 + 35, H/2 + 22);
     } else {
-      M5.Lcd.drawString("---", W/2 + 42, H/2 + 22);
+      M5.Lcd.drawString("---", W/2 + 35, H/2 + 22);
     }
 
     // 下段: 電車メーター
@@ -268,25 +276,32 @@ void drawTrainProgressBar(uint32_t progress) {
   M5.Lcd.drawLine(trackL, trackY-2, trackR, trackY-2, 0x8410);
   M5.Lcd.drawLine(trackL, trackY+2, trackR, trackY+2, 0x8410);
 
-  // 駅マーカー
+  // 駅マーカー（実際の位置に配置）
   for (int i = 0; i < totalStations; i++) {
-    int x = trackL + (trackW * (i+1)) / (totalStations+1);
+    int x;
+    if (stations[i].progressPct > 0) {
+      // v2.htmlから送られた実際の位置を使用
+      x = trackL + (trackW * stations[i].progressPct) / 100;
+    } else {
+      // フォールバック: 等間隔
+      x = trackL + (trackW * (i+1)) / (totalStations+1);
+    }
     bool isLast = (i == totalStations - 1);
     if (i < currentNextStation) {
       M5.Lcd.fillCircle(x, trackY, 3, TFT_GREEN);
     } else if (isLast) {
-      M5.Lcd.fillCircle(x, trackY, 4, TFT_RED);
+      M5.Lcd.fillCircle(x, trackY, 5, TFT_RED);
     } else {
       M5.Lcd.drawCircle(x, trackY, 3, TFT_WHITE);
     }
   }
 
-  // 電車アイコン
+  // 電車アイコン（大きめ）
   int trainX = trackL + (trackW * progress) / 100000;
-  M5.Lcd.fillRect(trainX-6, trackY-9, 12, 7, TFT_RED);
-  M5.Lcd.fillRect(trainX-4, trackY-8, 3, 3, TFT_YELLOW);
-  M5.Lcd.fillRect(trainX+1, trackY-8, 3, 3, TFT_YELLOW);
-  M5.Lcd.drawLine(trainX-6, trackY-3, trainX+5, trackY-3, TFT_WHITE);
+  M5.Lcd.fillRect(trainX-8, trackY-12, 16, 9, TFT_RED);
+  M5.Lcd.fillRect(trainX-6, trackY-11, 4, 4, TFT_YELLOW);
+  M5.Lcd.fillRect(trainX+2, trackY-11, 4, 4, TFT_YELLOW);
+  M5.Lcd.drawLine(trainX-8, trackY-4, trainX+7, trackY-4, TFT_WHITE);
 }
 
 void drawNextStation() {
@@ -355,7 +370,7 @@ void drawStationArrived() {
   M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
   M5.Lcd.setTextSize(1);
   M5.Lcd.setTextColor(TFT_YELLOW, 0x0018);
-  M5.Lcd.drawString("♪ とうちゃく ♪", M5.Lcd.width()/2, 30);
+  M5.Lcd.drawString("とうちゃく!", M5.Lcd.width()/2, 30);
 
   M5.Lcd.setTextColor(TFT_WHITE, 0x0018);
   if (prevNextStation < stationCount) {
@@ -390,15 +405,10 @@ void playMelody(const int melody[][2], int len) {
 }
 
 void playStationArrivalMelody(uint8_t stationIdx) {
-  // まずチャイム
+  // チャイム → 愛の挨拶 終結部
   playMelody(stationChime, stationChimeLen);
   delay(200);
-  // 偶数駅: 愛の挨拶, 奇数駅: トルコ行進曲
-  if (stationIdx % 2 == 0) {
-    playMelody(salutDamour, salutLen);
-  } else {
-    playMelody(turkishMarch, turkishLen);
-  }
+  playMelody(salutDamourEnding, salutEndLen);
 }
 
 void playGoalMelody() {

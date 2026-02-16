@@ -738,16 +738,36 @@ function initApp() {
   }
 
   // ==================== BLE送信 ====================
+  // 各駅のルート上の位置(0-100)を計算
+  function calcStationProgressPcts() {
+    if (stations.length === 0) return [];
+    if (stations.length === 1) return [100];
+    // 累積距離を計算
+    const cumDist = [0];
+    for (let i = 1; i < stations.length; i++) {
+      cumDist.push(cumDist[i-1] + haversineDistance(
+        stations[i-1].lat, stations[i-1].lng,
+        stations[i].lat, stations[i].lng
+      ));
+    }
+    const totalDist = cumDist[cumDist.length - 1];
+    if (totalDist === 0) return stations.map(() => 0);
+    return cumDist.map(d => Math.round((d / totalDist) * 100));
+  }
+
   async function sendStationNames() {
     if (!bleCharacteristic) return;
+    const pcts = calcStationProgressPcts();
     try {
       await bleCharacteristic.writeValueWithResponse(new Uint8Array([0x02]).buffer);
       await sleep(50);
       for (let i = 0; i < stations.length; i++) {
         const nameBytes = new TextEncoder().encode(stations[i].name + '駅');
-        const pkt = new Uint8Array(3 + Math.min(nameBytes.length, 18));
-        pkt[0] = 0x01; pkt[1] = i; pkt[2] = Math.min(nameBytes.length, 18);
-        pkt.set(nameBytes.slice(0, 18), 3);
+        const nameLen = Math.min(nameBytes.length, 18);
+        const pkt = new Uint8Array(3 + nameLen + 1); // +1 for progressPct
+        pkt[0] = 0x01; pkt[1] = i; pkt[2] = nameLen;
+        pkt.set(nameBytes.slice(0, nameLen), 3);
+        pkt[3 + nameLen] = pcts[i] || 0;  // 位置% (0-100)
         await bleCharacteristic.writeValueWithResponse(pkt.buffer);
         await sleep(50);
       }
@@ -955,9 +975,15 @@ function initApp() {
     ctx.beginPath(); ctx.moveTo(padX, trackY - 3); ctx.lineTo(padX + trackW, trackY - 3); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(padX, trackY + 3); ctx.lineTo(padX + trackW, trackY + 3); ctx.stroke();
 
-    // 駅マーカー
+    // 駅マーカー（実際の位置に配置）
+    const pcts = calcStationProgressPcts();
     for (let i = 0; i < totalStations; i++) {
-      const x = padX + (trackW * (i + 1)) / (totalStations + 1);
+      let x;
+      if (pcts[i] !== undefined && pcts[i] > 0) {
+        x = padX + (trackW * pcts[i]) / 100;
+      } else {
+        x = padX + (trackW * (i + 1)) / (totalStations + 1);
+      }
       const isLast = i === totalStations - 1;
       ctx.beginPath(); ctx.arc(x, trackY, isLast ? 7 : 5.5, 0, Math.PI * 2);
       if (i < nextIdx) { ctx.fillStyle = '#38A169'; ctx.fill(); }
