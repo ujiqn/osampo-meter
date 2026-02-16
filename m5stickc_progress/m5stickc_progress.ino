@@ -237,17 +237,26 @@ void drawProgress(uint32_t progress) {
     M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
     M5.Lcd.drawString(buf, W/2, 22);
 
-    // 中段: 次は XX駅 (大きめ)
+    // 中段: 次は XX駅 (駅名の長さに応じてサイズ調整)
     M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(0x8410, TFT_BLACK);  // グレー
-    M5.Lcd.drawString("次は", W/2 - 60, H/2 + 22);
+    M5.Lcd.setTextDatum(MR_DATUM);  // 右寄せ
+    M5.Lcd.drawString("次は", W/2 - 20, H/2 + 22);
     M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
+    M5.Lcd.setTextDatum(ML_DATUM);  // 左寄せ
     if (currentNextStation < stationCount) {
-      M5.Lcd.drawString(stations[currentNextStation].name, W/2 + 30, H/2 + 22);
+      const char* sname = stations[currentNextStation].name;
+      int nameLen = strlen(sname);
+      // UTF-8のバイト数で判定（日本語1文字=3バイト）: 5文字以上なら小さく
+      if (nameLen > 12) {
+        M5.Lcd.setFont(&fonts::lgfxJapanGothicP_20);
+      }
+      M5.Lcd.drawString(sname, W/2 - 14, H/2 + 22);
     } else {
-      M5.Lcd.drawString("---", W/2 + 30, H/2 + 22);
+      M5.Lcd.drawString("---", W/2 - 14, H/2 + 22);
     }
+    M5.Lcd.setTextDatum(MC_DATUM);  // 戻す
 
     // 下段: 電車メーター
     drawTrainProgressBar(progress);
@@ -324,10 +333,15 @@ void drawNextStation() {
   M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
   M5.Lcd.drawString("次は", M5.Lcd.width()/2, 20);
 
-  // 駅名
+  // 駅名（長い名前は小さく）
   M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
   if (currentNextStation < stationCount) {
-    M5.Lcd.drawString(stations[currentNextStation].name, M5.Lcd.width()/2, M5.Lcd.height()/2 + 5);
+    const char* sname = stations[currentNextStation].name;
+    int nameLen = strlen(sname);
+    if (nameLen > 12) {
+      M5.Lcd.setFont(&fonts::lgfxJapanGothicP_24);
+    }
+    M5.Lcd.drawString(sname, M5.Lcd.width()/2, M5.Lcd.height()/2 + 5);
   } else {
     M5.Lcd.drawString("---", M5.Lcd.width()/2, M5.Lcd.height()/2 + 5);
   }
@@ -384,7 +398,12 @@ void drawStationArrived() {
 
   M5.Lcd.setTextColor(TFT_WHITE, 0x0018);
   if (prevNextStation < stationCount) {
-    M5.Lcd.drawString(stations[prevNextStation].name, M5.Lcd.width()/2, M5.Lcd.height()/2 + 10);
+    const char* sname = stations[prevNextStation].name;
+    int nameLen = strlen(sname);
+    if (nameLen > 12) {
+      M5.Lcd.setFont(&fonts::lgfxJapanGothicP_24);
+    }
+    M5.Lcd.drawString(sname, M5.Lcd.width()/2, M5.Lcd.height()/2 + 10);
   }
 }
 

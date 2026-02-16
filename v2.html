@@ -258,7 +258,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.12</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.13</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -802,6 +802,13 @@ function initApp() {
       bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
       $bleBadge.textContent = 'BLE接続済'; $bleBadge.classList.add('connected');
       $btnBle.textContent = '接続済'; $btnBle.disabled = true;
+      // 走行中に(再)接続した場合、駅名と進捗を再送
+      if (isRunning) {
+        await sendStationNames();
+        lastSentProgress = -1;
+        // スキップフラグ付きでM5のprevNextStationを同期（到着演出を抑制）
+        sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length, 0x01);
+      }
     } catch(err) {
       console.error('BLE:', err);
       $btnBle.textContent = 'BLE接続';
@@ -941,7 +948,9 @@ function initApp() {
 
     await requestWakeLock();
     await sendStationNames();
-    sendProgressV2(0, 0, 0, 0, stations.length);
+    // 出発駅(idx=0)はスキップ済みなので、nextIdx=1をスキップフラグ付きで送信
+    // → M5側でprevNextStation=1に同期され、出発駅の到着演出が鳴らない
+    sendProgressV2(0, 0, 0, 1, stations.length, 0x01);
 
     watchId = navigator.geolocation.watchPosition(
       onPositionUpdate,
