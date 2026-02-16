@@ -1020,9 +1020,10 @@ function initApp() {
 
     // 駅マーカー（実際の位置に配置）
     const pcts = calcStationProgressPcts();
+    const hasPositionData = pcts.length >= 2 && pcts[pcts.length - 1] === 100;
     for (let i = 0; i < totalStations; i++) {
       let x;
-      if (pcts[i] !== undefined && pcts[i] > 0) {
+      if (hasPositionData && pcts[i] !== undefined) {
         x = padX + (trackW * pcts[i]) / 100;
       } else {
         x = padX + (trackW * (i + 1)) / (totalStations + 1);

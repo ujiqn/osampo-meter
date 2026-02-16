@@ -71,24 +71,19 @@ bool showDistance = false;
 
 // --- メロディ定義 ---
 
-// 駅到着チャイム (JR風 4音)
-const int stationChime[][2] = {
-  {1047, 200}, {1319, 200}, {1568, 200}, {2093, 400}
-};
-const int stationChimeLen = 4;
-
 // 愛の挨拶 (Salut d'Amour) Op.12 終結部
-// E major: 最後の穏やかな下降フレーズ → E(長音)で終止
+// ドシ♭ラーソファレーミーファーー
 const int salutDamourEnding[][2] = {
-  {988, 300},   // B5
-  {880, 200},   // A5
-  {831, 200},   // G#5
-  {659, 300},   // E5
-  {0, 80},
-  {740, 200},   // F#5
-  {659, 600},   // E5 (長音で終止)
+  {523, 250},   // C5 (ド)
+  {466, 250},   // Bb4 (シ♭)
+  {440, 500},   // A4 (ラー)
+  {392, 250},   // G4 (ソ)
+  {349, 250},   // F4 (ファ)
+  {294, 500},   // D4 (レー)
+  {330, 500},   // E4 (ミー)
+  {349, 900},   // F4 (ファーー)
 };
-const int salutEndLen = 7;
+const int salutEndLen = 8;
 
 // v1用: マイルストーンメロディ (3音)
 const int milestoneMelody[][2] = {
@@ -96,16 +91,22 @@ const int milestoneMelody[][2] = {
 };
 const int milestoneLen = 3;
 
-// ゴールメロディ (豪華ファンファーレ)
+// ゴールメロディ (明るいファンファーレ)
 const int goalMelody[][2] = {
-  {1047, 200}, {1319, 200}, {1568, 200}, {2093, 400},
-  {0, 150},
-  {988, 120}, {880, 120}, {831, 120}, {880, 120},
-  {1319, 300}, {0, 100},
-  {1175, 120}, {1047, 120}, {988, 120}, {1047, 120},
-  {1568, 500}
+  {784, 150},  // G5
+  {988, 150},  // B5
+  {1175, 150}, // D6
+  {1319, 400}, // E6
+  {0, 80},
+  {1175, 120}, // D6
+  {1319, 120}, // E6
+  {1568, 500}, // G6
+  {0, 100},
+  {1319, 200}, // E6
+  {1568, 200}, // G6
+  {2093, 700}, // C7 (高く明るく)
 };
-const int goalLen = 16;
+const int goalLen = 12;
 
 // --- BLEコールバック ---
 class ServerCallbacks : public BLEServerCallbacks {
@@ -217,26 +218,26 @@ void drawProgress(uint32_t progress) {
 
   if (v2Mode && totalStations > 0) {
     // === v2: 1画面統合レイアウト ===
-    // 上段: X.XXX% (大きく)
+    // 上段: X.XXX%
     float pct = progress / 1000.0;
     char buf[16];
     snprintf(buf, sizeof(buf), "%.3f%%", pct);
     M5.Lcd.setFont(&fonts::Font4);
-    M5.Lcd.setTextSize(2);
+    M5.Lcd.setTextSize(1.5);
     M5.Lcd.setTextDatum(MC_DATUM);
     M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
-    M5.Lcd.drawString(buf, W/2, 30);
+    M5.Lcd.drawString(buf, W/2, 22);
 
-    // 中段: 次は XX駅
-    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_24);
+    // 中段: 次は XX駅 (大きめ)
+    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(0x8410, TFT_BLACK);  // グレー
-    M5.Lcd.drawString("次は", W/2 - 55, H/2 + 22);
+    M5.Lcd.drawString("次は", W/2 - 60, H/2 + 22);
     M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
     if (currentNextStation < stationCount) {
-      M5.Lcd.drawString(stations[currentNextStation].name, W/2 + 35, H/2 + 22);
+      M5.Lcd.drawString(stations[currentNextStation].name, W/2 + 30, H/2 + 22);
     } else {
-      M5.Lcd.drawString("---", W/2 + 35, H/2 + 22);
+      M5.Lcd.drawString("---", W/2 + 30, H/2 + 22);
     }
 
     // 下段: 電車メーター
@@ -277,13 +278,13 @@ void drawTrainProgressBar(uint32_t progress) {
   M5.Lcd.drawLine(trackL, trackY+2, trackR, trackY+2, 0x8410);
 
   // 駅マーカー（実際の位置に配置）
+  // v2モードで最終駅のprogressPctが100なら位置データ受信済み
+  bool hasPositionData = (v2Mode && totalStations >= 2 && stations[totalStations-1].progressPct == 100);
   for (int i = 0; i < totalStations; i++) {
     int x;
-    if (stations[i].progressPct > 0) {
-      // v2.htmlから送られた実際の位置を使用
+    if (hasPositionData) {
       x = trackL + (trackW * stations[i].progressPct) / 100;
     } else {
-      // フォールバック: 等間隔
       x = trackL + (trackW * (i+1)) / (totalStations+1);
     }
     bool isLast = (i == totalStations - 1);
@@ -389,7 +390,7 @@ void drawGoal() {
   M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
   M5.Lcd.setTextSize(1);
   M5.Lcd.setTextDatum(MC_DATUM);
-  M5.Lcd.drawString("到着", M5.Lcd.width()/2, M5.Lcd.height()/2 - 20);
+  M5.Lcd.drawString("終点に到着", M5.Lcd.width()/2, M5.Lcd.height()/2 - 20);
   M5.Lcd.drawString("いってらっしゃい", M5.Lcd.width()/2, M5.Lcd.height()/2 + 20);
 }
 
@@ -405,9 +406,7 @@ void playMelody(const int melody[][2], int len) {
 }
 
 void playStationArrivalMelody(uint8_t stationIdx) {
-  // チャイム → 愛の挨拶 終結部
-  playMelody(stationChime, stationChimeLen);
-  delay(200);
+  // 愛の挨拶 終結部のみ
   playMelody(salutDamourEnding, salutEndLen);
 }
 
@@ -467,7 +466,14 @@ void loop() {
     showDistance = false;
     v2Mode = false;
     currentState = STATE_CONNECTED;
-    drawProgress(0);
+    // 接続直後は待機画面を表示（v2データが来たら自動切替）
+    M5.Lcd.fillScreen(TFT_BLACK);
+    M5.Lcd.setTextDatum(MC_DATUM);
+    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
+    M5.Lcd.drawString("せつぞくOK!", M5.Lcd.width()/2, M5.Lcd.height()/2);
+    drawBattery();
   }
 
   if (!deviceConnected && prevConnected) {
