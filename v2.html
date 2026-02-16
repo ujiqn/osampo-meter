@@ -10,21 +10,15 @@
   html, body { height: 100%; overflow: hidden; touch-action: manipulation; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
-    background: #F7F8FC;
-    color: #2D3748;
-    display: flex;
-    flex-direction: column;
+    background: #F7F8FC; color: #2D3748;
+    display: flex; flex-direction: column;
   }
 
-  /* ヘッダー */
+  /* ===== ヘッダー ===== */
   .header {
-    padding: 10px 16px;
-    background: #1B365D;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-    color: #fff;
+    padding: 10px 16px; background: #1B365D;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; color: #fff;
   }
   .header h1 { font-size: 17px; white-space: nowrap; }
   .header-right { display: flex; align-items: center; gap: 6px; }
@@ -34,38 +28,141 @@
   }
   .ble-badge.connected { background: #38A169; color: #fff; }
   .ble-badge.test-mode { background: #D69E2E; color: #fff; }
-  .btn-test-mini {
+  .btn-header {
     font-size: 9px; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.3);
     border-radius: 6px; background: transparent; color: #999; cursor: pointer;
   }
-  .btn-test-mini.active { background: #D69E2E; border-color: #D69E2E; color: #fff; }
+  .btn-header.active { background: #D69E2E; border-color: #D69E2E; color: #fff; }
+  .btn-settings { font-size: 16px; padding: 0 4px; border: none; background: transparent; color: #aaa; cursor: pointer; }
 
-  /* 検索バー（駅追加時のみ表示） */
-  .search-bar {
-    display: none; gap: 8px; padding: 8px 12px;
+  /* ===== ホーム画面: 路線図 ===== */
+  .route-panel {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+    display: flex; flex-direction: column;
+  }
+  .route-list { list-style: none; flex: 1; }
+  .route-item {
+    display: flex; align-items: center; padding: 4px 0;
+    position: relative;
+  }
+  .route-line {
+    display: flex; flex-direction: column; align-items: center;
+    width: 32px; flex-shrink: 0;
+  }
+  .route-line .track { width: 4px; flex: 1; min-height: 14px; background: #CBD5E0; }
+  .route-item:first-child .route-line .track:first-child { background: transparent; }
+  .route-item:last-child .route-line .track:last-child { background: transparent; }
+  .route-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 3px solid #CBD5E0; background: #fff; flex-shrink: 0;
+  }
+  .route-item.passed .route-dot { border-color: #38A169; background: #38A169; }
+  .route-item.passed .route-line .track { background: #38A169; }
+  .route-item.next .route-dot { border-color: #4299E1; background: #4299E1; animation: pulse 1.5s infinite; }
+  .route-item:last-child .route-dot {
+    border-color: #E63946; background: #fff; width: 22px; height: 22px; border-width: 4px;
+  }
+  .route-item:last-child.passed .route-dot { background: #E63946; }
+  .route-info { flex: 1; margin-left: 12px; }
+  .route-name {
+    font-size: 16px; font-weight: 700; color: #2D3748;
+  }
+  .route-item.passed .route-name { color: #38A169; }
+  .route-item:last-child .route-name { color: #E63946; }
+  .route-sub { font-size: 11px; color: #A0AEC0; margin-top: 1px; }
+  .route-item.passed .route-sub { color: #68D391; }
+  /* 強制通過ボタン */
+  .btn-arrive {
+    padding: 6px 12px; border: none; border-radius: 8px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    flex-shrink: 0; display: none;
+  }
+  .btn-arrive.show { display: block; }
+  .btn-arrive.station { background: #EBF8FF; color: #2B6CB0; }
+  .btn-arrive.station:active { background: #4299E1; color: #fff; }
+  .btn-arrive.goal { background: linear-gradient(135deg, #F6AD55, #E53E3E); color: #fff; }
+  .btn-arrive.goal:active { background: #E53E3E; }
+
+  /* 駅0個時 */
+  .empty-route {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 20px;
+  }
+  .empty-route-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-route-title { font-size: 18px; font-weight: 700; color: #1B365D; margin-bottom: 6px; }
+  .empty-route-desc { font-size: 13px; color: #718096; line-height: 1.5; margin-bottom: 16px; }
+  .empty-route-btn {
+    padding: 14px 28px; border: none; border-radius: 12px;
+    background: #4299E1; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(66,153,225,0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(66,153,225,0); }
+  }
+
+  /* ===== プログレス ===== */
+  .progress-section {
+    padding: 10px 16px 6px; background: #fff;
+    border-top: 1px solid #E2E8F0; flex-shrink: 0; text-align: center;
+  }
+  .train-track-bar { width: 100%; height: 48px; margin-bottom: 4px; }
+  .progress-number {
+    font-size: 44px; font-weight: 800; color: #1B365D;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-remaining { font-size: 12px; color: #A0AEC0; margin-top: 2px; }
+
+  /* ===== コントロール ===== */
+  .controls {
+    padding: 10px 16px 14px; display: flex; gap: 10px;
+    background: #fff; border-top: 1px solid #E2E8F0; flex-shrink: 0;
+  }
+  .btn {
+    flex: 1; padding: 14px; border: none; border-radius: 10px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-ble { background: #4299E1; color: #fff; }
+  .btn-start { background: #38A169; color: #fff; }
+  .btn-stop { background: #E53E3E; color: #fff; }
+
+  /* ===== 設定オーバーレイ ===== */
+  .settings-overlay {
+    display: none; position: fixed; inset: 0; background: #F7F8FC;
+    z-index: 4000; flex-direction: column;
+  }
+  .settings-overlay.show { display: flex; }
+  .settings-header {
+    padding: 10px 16px; background: #1B365D; color: #fff;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .settings-header h2 { font-size: 16px; }
+  .settings-close {
+    padding: 6px 12px; border: none; border-radius: 8px;
+    background: rgba(255,255,255,0.15); color: #fff; font-size: 13px; cursor: pointer;
+  }
+  .settings-search {
+    display: flex; gap: 8px; padding: 8px 12px;
     background: #fff; border-bottom: 1px solid #E2E8F0; flex-shrink: 0;
   }
-  .search-bar.show { display: flex; }
-  .search-bar input {
+  .settings-search input {
     flex: 1; padding: 8px 12px; border: 1px solid #CBD5E0; border-radius: 8px;
     background: #F7F8FC; color: #2D3748; font-size: 14px; outline: none;
   }
-  .search-bar input:focus { border-color: #4299E1; }
-  .search-bar input::placeholder { color: #A0AEC0; }
-  .search-bar button {
+  .settings-search input:focus { border-color: #4299E1; }
+  .settings-search input::placeholder { color: #A0AEC0; }
+  .settings-search button {
     padding: 8px 14px; border: none; border-radius: 8px;
     background: #4299E1; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
   }
-  .search-bar button:disabled { opacity: 0.4; }
-  .search-bar .search-close {
-    padding: 8px 10px; border: none; border-radius: 8px;
-    background: #EDF2F7; color: #718096; font-size: 13px; cursor: pointer;
-  }
+  .settings-search button:disabled { opacity: 0.4; }
 
   /* 検索結果 */
   .search-results {
     position: absolute; top: 0; left: 0; right: 0;
-    background: #fff; z-index: 3000; max-height: 100%; overflow-y: auto; display: none;
+    background: #fff; z-index: 5000; max-height: 60%; overflow-y: auto; display: none;
   }
   .search-results.show { display: block; }
   .sr-item { padding: 12px 16px; border-bottom: 1px solid #EDF2F7; cursor: pointer; }
@@ -74,165 +171,61 @@
   .sr-addr { font-size: 11px; color: #A0AEC0; margin-top: 2px; }
   .sr-close { padding: 12px; text-align: center; color: #E53E3E; cursor: pointer; font-size: 13px; }
 
-  /* 地図 */
-  #map-container { position: relative; flex: 1; min-height: 120px; }
-  #map { width: 100%; height: 100%; }
+  /* 設定: 地図 */
+  .settings-map { position: relative; flex: 1; min-height: 150px; }
+  .settings-map #map { width: 100%; height: 100%; }
   .map-hint {
     position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
     background: rgba(27,54,93,0.85); color: #fff; padding: 5px 12px;
     border-radius: 14px; font-size: 12px; pointer-events: none; z-index: 1000;
-    display: none;
   }
 
-  /* 駅リスト（設定モード） */
-  .station-panel {
+  /* 設定: 駅リスト */
+  .settings-stations {
     background: #fff; border-top: 1px solid #E2E8F0;
     max-height: 200px; overflow-y: auto; flex-shrink: 0;
   }
-  .station-panel.hidden { display: none; }
-  .station-list { list-style: none; padding: 0; }
-  .station-item {
-    display: flex; align-items: center; gap: 0; padding: 6px 12px;
-    border-bottom: 1px solid #F7FAFC; position: relative;
-    user-select: none; -webkit-user-select: none;
-    transition: background 0.15s;
+  .settings-stations ul { list-style: none; }
+  .ss-item {
+    display: flex; align-items: center; padding: 8px 12px;
+    border-bottom: 1px solid #F7FAFC;
   }
-  .station-line {
-    display: flex; flex-direction: column; align-items: center;
-    width: 28px; flex-shrink: 0;
+  .ss-num { font-size: 13px; font-weight: 700; color: #718096; width: 24px; text-align: center; flex-shrink: 0; }
+  .ss-name {
+    flex: 1; font-size: 14px; font-weight: 600; color: #2D3748;
+    margin: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .station-line .track-top, .station-line .track-bottom {
-    width: 3px; flex: 1; min-height: 8px;
+  .ss-name-edit {
+    flex: 1; font-size: 14px; font-weight: 600; color: #2D3748;
+    margin: 0 8px; border: none; border-bottom: 2px solid #4299E1;
+    outline: none; background: transparent; padding: 0;
   }
-  .station-dot {
-    width: 14px; height: 14px; border-radius: 50%;
-    border: 3px solid #38A169; background: #fff; flex-shrink: 0;
-  }
-  .station-item:last-child .station-dot {
-    border-color: #E63946; background: #E63946; width: 16px; height: 16px;
-  }
-  .station-item:last-child .station-dot::after {
-    content: '★'; color: #fff; font-size: 8px;
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; height: 100%;
-  }
-  .station-content { flex: 1; margin-left: 8px; min-width: 0; }
-  .station-name-display {
-    font-size: 14px; font-weight: 600; color: #2D3748;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .station-name-edit {
-    font-size: 14px; font-weight: 600; color: #2D3748; border: none;
-    border-bottom: 2px solid #4299E1; outline: none; background: transparent;
-    width: 100%; padding: 0;
-  }
-  .station-dist { font-size: 11px; color: #A0AEC0; }
-  .station-badge {
+  .ss-badge {
     font-size: 9px; padding: 1px 5px; border-radius: 4px;
-    background: #FED7D7; color: #E63946; font-weight: 600; margin-left: 6px;
+    background: #FED7D7; color: #E63946; font-weight: 600; margin-right: 4px;
   }
-  /* 並べ替えボタン */
-  .station-reorder {
-    display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; margin-right: 6px;
+  .ss-actions { display: flex; gap: 2px; flex-shrink: 0; }
+  .ss-btn {
+    width: 30px; height: 28px; border: 1px solid #E2E8F0; background: #fff;
+    color: #718096; font-size: 13px; cursor: pointer; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .station-reorder button {
-    width: 32px; height: 28px; border: 1px solid #CBD5E0; background: #fff;
-    color: transparent; font-size: 0; cursor: pointer; border-radius: 6px;
-    display: flex; align-items: center; justify-content: center; padding: 0;
-    position: relative;
-    -webkit-tap-highlight-color: rgba(66,153,225,0.3);
-  }
-  .station-reorder button::after {
-    content: ''; display: block;
-    width: 0; height: 0;
-    border-left: 5px solid transparent; border-right: 5px solid transparent;
-  }
-  .station-reorder button[data-dir="up"]::after {
-    border-bottom: 7px solid #4A5568;
-  }
-  .station-reorder button[data-dir="down"]::after {
-    border-top: 7px solid #4A5568;
-  }
-  .station-reorder button:active { background: #4299E1; border-color: #4299E1; }
-  .station-reorder button:active::after { border-bottom-color: #fff; border-top-color: #fff; }
-  .station-reorder button:disabled { opacity: 0.15; cursor: not-allowed; }
-  .station-delete {
-    width: 24px; height: 24px; border: none; background: transparent;
-    color: #CBD5E0; font-size: 16px; cursor: pointer; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; border-radius: 50%;
-  }
-  .station-delete:hover { color: #E53E3E; background: #FFF5F5; }
-  .station-add {
+  .ss-btn:active { background: #4299E1; color: #fff; border-color: #4299E1; }
+  .ss-btn:disabled { opacity: 0.15; }
+  .ss-btn.delete { color: #E53E3E; }
+  .ss-btn.delete:active { background: #E53E3E; color: #fff; }
+  .settings-add {
     display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 10px; color: #4299E1; font-size: 13px; font-weight: 600;
+    padding: 12px; color: #4299E1; font-size: 14px; font-weight: 600;
     cursor: pointer; border: 2px dashed #CBD5E0; margin: 8px 12px;
-    border-radius: 8px; background: transparent;
-    transition: border-color 0.2s, background 0.2s;
+    border-radius: 8px;
   }
-  .station-add:active { background: #EBF8FF; border-color: #4299E1; }
+  .settings-add:active { background: #EBF8FF; border-color: #4299E1; }
 
-  /* オンボーディング（駅0個時） */
-  .onboarding {
-    padding: 24px 20px; text-align: center;
-  }
-  .onboarding-icon { font-size: 40px; margin-bottom: 8px; }
-  .onboarding-title { font-size: 16px; font-weight: 700; color: #1B365D; margin-bottom: 6px; }
-  .onboarding-desc { font-size: 13px; color: #718096; line-height: 1.5; }
-  .onboarding-btn {
-    margin-top: 14px; padding: 12px 24px; border: none; border-radius: 12px;
-    background: #4299E1; color: #fff; font-size: 15px; font-weight: 700;
-    cursor: pointer;
-  }
-  .onboarding-btn:active { background: #3182CE; }
-
-  /* 次の駅バナー（走行モード） */
-  .next-station-banner {
-    display: none; padding: 10px 16px; background: #FFFFF0;
-    border-top: 1px solid #FEFCBF; flex-shrink: 0;
-    text-align: center;
-  }
-  .next-station-banner.show { display: block; }
-  .next-station-label { font-size: 12px; color: #975A16; }
-  .next-station-name { font-size: 20px; font-weight: 700; color: #744210; }
-  .next-station-dist { font-size: 13px; color: #B7791F; margin-top: 2px; }
-
-  /* プログレス */
-  .progress-section {
-    padding: 10px 16px; background: #fff;
-    border-top: 1px solid #E2E8F0; flex-shrink: 0; text-align: center;
-  }
-  .progress-section.running-mode .train-track-bar { height: 54px; }
-  .progress-section.running-mode .progress-number { font-size: 48px; }
-  .train-track-bar {
-    width: 100%; height: 36px; margin-bottom: 4px;
-    transition: height 0.3s;
-  }
-  .progress-number {
-    font-size: 36px; font-weight: 800; color: #1B365D;
-    font-variant-numeric: tabular-nums;
-    transition: font-size 0.3s;
-  }
-  .progress-remaining { font-size: 11px; color: #A0AEC0; margin-top: 2px; }
-
-  /* コントロール */
-  .controls {
-    padding: 10px 16px 14px; display: flex; gap: 10px;
-    background: #fff; border-top: 1px solid #E2E8F0; flex-shrink: 0;
-  }
-  .btn {
-    flex: 1; padding: 13px; border: none; border-radius: 10px;
-    font-size: 15px; font-weight: 700; cursor: pointer;
-  }
-  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .btn-ble { background: #4299E1; color: #fff; }
-  .btn-start { background: #38A169; color: #fff; }
-  .btn-stop { background: #E53E3E; color: #fff; }
-  .btn-goal { background: linear-gradient(135deg, #F6AD55, #E53E3E); color: #fff; }
-
-  /* 駅名入力モーダル */
+  /* ===== 駅名入力モーダル ===== */
   .modal-overlay {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-    z-index: 5000; align-items: center; justify-content: center;
+    z-index: 6000; align-items: center; justify-content: center;
   }
   .modal-overlay.show { display: flex; }
   .modal {
@@ -257,50 +250,54 @@
 </head>
 <body>
 
+<!-- ===== ヘッダー ===== -->
 <div class="header">
   <h1>🚂 おさんぽでんしゃ</h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
-    <button class="btn-test-mini" id="btnTest">TEST</button>
+    <button class="btn-settings" id="btnSettings">&#9881;</button>
+    <button class="btn-header" id="btnTest">TEST</button>
   </div>
 </div>
 
-<div class="search-bar" id="searchBar">
-  <input type="text" id="searchInput" placeholder="場所を検索..." enterkeyhint="search">
-  <button id="searchBtn">検索</button>
-  <button class="search-close" id="searchClose">✕</button>
-</div>
+<!-- ===== ホーム: 路線図 ===== -->
+<div class="route-panel" id="routePanel"></div>
 
-<div id="map-container">
-  <div class="map-hint" id="mapHint"></div>
-  <div class="search-results" id="searchResults"></div>
-  <div id="map"></div>
-</div>
-
-<div class="station-panel" id="stationPanel">
-  <ul class="station-list" id="stationList"></ul>
-  <div id="stationPanelBottom"></div>
-</div>
-
-<div class="next-station-banner" id="nextBanner">
-  <div class="next-station-label">🚃 つぎは</div>
-  <div class="next-station-name" id="nextName">---駅</div>
-  <div class="next-station-dist" id="nextDist"></div>
-</div>
-
-<div class="progress-section" id="progressSection">
-  <canvas class="train-track-bar" id="trainCanvas" width="360" height="36"></canvas>
+<!-- ===== プログレス ===== -->
+<div class="progress-section">
+  <canvas class="train-track-bar" id="trainCanvas" width="360" height="48"></canvas>
   <div class="progress-number"><span id="progressValue">0.000</span>%</div>
   <div class="progress-remaining" id="progressRemaining"></div>
 </div>
 
+<!-- ===== コントロール ===== -->
 <div class="controls">
   <button class="btn btn-ble" id="btnBle">BLE接続</button>
   <button class="btn btn-start" id="btnStart" disabled>しゅっぱつ!</button>
-  <button class="btn btn-goal" id="btnGoal" style="display:none;">ゴール!</button>
 </div>
 
-<!-- 駅名入力モーダル -->
+<!-- ===== 設定オーバーレイ ===== -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-header">
+    <h2>ルートせってい</h2>
+    <button class="settings-close" id="settingsClose">とじる</button>
+  </div>
+  <div class="settings-search">
+    <input type="text" id="searchInput" placeholder="場所を検索..." enterkeyhint="search">
+    <button id="searchBtn">検索</button>
+  </div>
+  <div class="settings-map">
+    <div class="map-hint" id="mapHint">タップして えきを ついか</div>
+    <div class="search-results" id="searchResults"></div>
+    <div id="map"></div>
+  </div>
+  <div class="settings-stations">
+    <ul id="settingsStationList"></ul>
+    <div class="settings-add" id="settingsAdd">+ えきをついか</div>
+  </div>
+</div>
+
+<!-- ===== 駅名モーダル ===== -->
 <div class="modal-overlay" id="nameModal">
   <div class="modal">
     <h3>🚉 えきのなまえ</h3>
@@ -315,20 +312,26 @@
 
 <script>
 const GMAP_API_KEY = 'AIzaSyDnmItjYjosd4qMt63vWkxY2twew-JVRnA';
+let gmapReady = false;
 
 function loadGoogleMaps() {
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAP_API_KEY}&libraries=places&language=ja`;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('Google Maps 読み込み失敗'));
+    s.onload = () => { gmapReady = true; resolve(); };
+    s.onerror = () => reject(new Error('Google Maps load failed'));
     document.head.appendChild(s);
   });
 }
 
-loadGoogleMaps().then(initApp).catch(err => {
-  alert('Google Mapsの読み込みに失敗しました');
-});
+// Google Mapsは設定画面を開いたときに初期化（遅延読み込み）
+let mapInitPromise = null;
+function ensureGoogleMaps() {
+  if (!mapInitPromise) mapInitPromise = loadGoogleMaps();
+  return mapInitPromise;
+}
+
+initApp();
 
 function initApp() {
   // ==================== 定数 ====================
@@ -342,10 +345,7 @@ function initApp() {
   let bleDevice = null, bleCharacteristic = null;
   let watchId = null, isRunning = false, testMode = false;
   let wakeLock = null;
-  let stations = []; // [{id, name, lat, lng}]
-  let stationMarkers = [];
-  let routeLine = null;
-  let currentMarker = null;
+  let stations = [];
   let startDistance = null;
   let maxProgress = 0;
   let lastSentProgress = -1;
@@ -353,249 +353,284 @@ function initApp() {
   let passedStations = [];
   let pendingStationLatLng = null;
 
+  // 設定画面用
+  let map = null, placesService = null;
+  let stationMarkers = [], routeLine = null, currentMarker = null;
+
   // ==================== DOM ====================
   const $ = id => document.getElementById(id);
   const $bleBadge = $('bleBadge'), $btnBle = $('btnBle'), $btnTest = $('btnTest');
-  const $btnStart = $('btnStart'), $btnGoal = $('btnGoal');
+  const $btnStart = $('btnStart'), $btnSettings = $('btnSettings');
   const $progressValue = $('progressValue'), $progressRemaining = $('progressRemaining');
-  const $progressSection = $('progressSection');
-  const $mapHint = $('mapHint'), $stationList = $('stationList');
-  const $stationPanel = $('stationPanel'), $stationPanelBottom = $('stationPanelBottom');
-  const $nextBanner = $('nextBanner'), $nextName = $('nextName'), $nextDist = $('nextDist');
-  const $searchBar = $('searchBar');
+  const $routePanel = $('routePanel');
+  const $settingsOverlay = $('settingsOverlay'), $settingsClose = $('settingsClose');
   const $searchInput = $('searchInput'), $searchBtn = $('searchBtn'), $searchResults = $('searchResults');
-  const $searchClose = $('searchClose');
+  const $settingsStationList = $('settingsStationList'), $settingsAdd = $('settingsAdd');
+  const $mapHint = $('mapHint');
   const $nameModal = $('nameModal'), $nameInput = $('nameInput');
   const $nameCancel = $('nameCancel'), $nameOk = $('nameOk');
   const trainCanvas = $('trainCanvas');
 
-  // ==================== Google Map ====================
-  const map = new google.maps.Map($('map'), {
-    center: { lat: 35.6812, lng: 139.7671 },
-    zoom: 15,
-    disableDefaultUI: true,
-    zoomControl: true,
-    styles: [
-      { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-      { featureType: 'transit', stylers: [{ visibility: 'off' }] }
-    ]
-  });
-
-  const placesService = new google.maps.places.PlacesService(map);
-
-  // 現在地
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      map.setCenter(loc);
-      map.setZoom(16);
-      if (!currentMarker) {
-        currentMarker = new google.maps.Circle({
-          map, center: loc, radius: 8,
-          fillColor: '#4299E1', fillOpacity: 1,
-          strokeColor: '#fff', strokeWeight: 2, clickable: false
-        });
-      }
-    }, () => {}, { enableHighAccuracy: true });
-  }
-
-  // ==================== モード切替 ====================
-  function enterRunningMode() {
-    $stationPanel.classList.add('hidden');
-    $searchBar.classList.remove('show');
-    $nextBanner.classList.add('show');
-    $progressSection.classList.add('running-mode');
-    // Canvas高さ更新
-    setTimeout(() => drawTrainBar(0, 0, stations.length), 50);
-  }
-
-  function exitRunningMode() {
-    $stationPanel.classList.remove('hidden');
-    $nextBanner.classList.remove('show');
-    $progressSection.classList.remove('running-mode');
-    setTimeout(() => drawTrainBar(0, 0, Math.max(1, stations.length)), 50);
-  }
-
-  // ==================== 駅データ管理 ====================
+  // ==================== 駅データ ====================
   function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-
-  function saveStations() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stations));
-  }
-
+  function saveStations() { localStorage.setItem(STORAGE_KEY, JSON.stringify(stations)); }
   function loadStations() {
     try {
       const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (Array.isArray(d) && d.length > 0) { stations = d; renderStations(); updateMap(); }
+      if (Array.isArray(d) && d.length > 0) stations = d;
     } catch(e) {}
   }
-
   function addStation(name, lat, lng) {
     stations.push({ id: genId(), name, lat, lng });
-    saveStations(); renderStations(); updateMap(); updateStartButton();
+    saveStations(); renderAll();
   }
-
   function removeStation(id) {
     stations = stations.filter(s => s.id !== id);
-    saveStations(); renderStations(); updateMap(); updateStartButton();
+    saveStations(); renderAll();
   }
-
   function renameStation(id, newName) {
     const s = stations.find(s => s.id === id);
-    if (s) { s.name = newName; saveStations(); renderStations(); }
+    if (s) { s.name = newName; saveStations(); renderAll(); }
   }
-
   function moveStation(fromIdx, toIdx) {
     if (toIdx < 0 || toIdx >= stations.length) return;
     const [item] = stations.splice(fromIdx, 1);
     stations.splice(toIdx, 0, item);
-    saveStations(); renderStations(); updateMap();
+    saveStations(); renderAll();
   }
 
-  // ==================== 駅リスト描画 ====================
-  function renderStations() {
-    $stationList.innerHTML = '';
+  function renderAll() {
+    renderRoute();
+    renderSettingsStations();
+    updateMap();
+    updateStartButton();
+  }
 
-    // 駅が0個の場合: オンボーディング表示
+  // ==================== ホーム: 路線図描画 ====================
+  function renderRoute() {
+    $routePanel.innerHTML = '';
+
     if (stations.length === 0) {
-      $stationPanelBottom.innerHTML = `
-        <div class="onboarding">
-          <div class="onboarding-icon">🏠</div>
-          <div class="onboarding-title">まずは おうちのばしょを えらぼう！</div>
-          <div class="onboarding-desc">地図をタップするか、下のボタンで検索してね</div>
-          <button class="onboarding-btn" id="onboardingBtn">🔍 ばしょをさがす</button>
+      $routePanel.innerHTML = `
+        <div class="empty-route">
+          <div class="empty-route-icon">🚂</div>
+          <div class="empty-route-title">ルートをつくろう！</div>
+          <div class="empty-route-desc">えきをせっていして<br>おさんぽでんしゃを はしらせよう</div>
+          <button class="empty-route-btn" id="emptySetupBtn">せっていする</button>
         </div>
       `;
-      $('onboardingBtn').addEventListener('click', () => {
-        $searchBar.classList.add('show');
-        setTimeout(() => $searchInput.focus(), 100);
-      });
-      $mapHint.textContent = 'タップして おうちのばしょを えらんでね';
-      $mapHint.style.display = 'block';
+      $('emptySetupBtn').addEventListener('click', openSettings);
       return;
     }
 
-    // 駅がある場合
-    $stationPanelBottom.innerHTML = `<div class="station-add" id="stationAdd">+ えきをついか</div>`;
-    $('stationAdd').addEventListener('click', () => {
-      if (isRunning) return;
-      $searchBar.classList.add('show');
-      $mapHint.textContent = 'タップ or 検索でえきをついか';
-      $mapHint.style.display = 'block';
-      setTimeout(() => $searchInput.focus(), 100);
-    });
+    const ul = document.createElement('ul');
+    ul.className = 'route-list';
 
     stations.forEach((s, i) => {
       const li = document.createElement('li');
-      li.className = 'station-item';
-      li.dataset.index = i;
-
-      const isFirst = i === 0;
+      li.className = 'route-item';
       const isLast = i === stations.length - 1;
+      const isPassed = isRunning && passedStations[i];
+      const isNext = isRunning && i === nextStationIndex && !passedStations[i];
+
+      if (isPassed) li.classList.add('passed');
+      if (isNext) li.classList.add('next');
+
       const distText = i > 0
         ? formatDist(haversineDistance(stations[i-1].lat, stations[i-1].lng, s.lat, s.lng))
         : '';
 
-      const showReorder = stations.length >= 2;
+      // 強制通過ボタンの表示条件
+      const showArrive = isRunning && !isPassed && !testMode;
+      const btnClass = isLast ? 'goal' : 'station';
+      const btnText = isLast ? 'ゴール!' : 'とうちゃく';
+
       li.innerHTML = `
-        ${showReorder ? `<div class="station-reorder">
-          <button data-dir="up" ${isFirst ? 'disabled' : ''}>▲</button>
-          <button data-dir="down" ${isLast ? 'disabled' : ''}>▼</button>
-        </div>` : ''}
-        <div class="station-line">
-          <div class="track-top"></div>
-          <div class="station-dot"></div>
-          <div class="track-bottom"></div>
+        <div class="route-line">
+          <div class="track"></div>
+          <div class="route-dot"></div>
+          <div class="track"></div>
         </div>
-        <div class="station-content">
-          <div class="station-name-display" data-id="${s.id}">${s.name}駅${isLast ? '<span class="station-badge">終着</span>' : ''}</div>
-          ${distText ? `<div class="station-dist">${distText}</div>` : ''}
+        <div class="route-info">
+          <div class="route-name">${s.name}駅</div>
+          <div class="route-sub">${isPassed ? 'つうか!' : distText}</div>
         </div>
-        <button class="station-delete" data-id="${s.id}">×</button>
+        <button class="btn-arrive ${btnClass} ${showArrive ? 'show' : ''}" data-idx="${i}">${btnText}</button>
       `;
 
-      // 並べ替えボタン
-      li.querySelectorAll('.station-reorder button').forEach(btn => {
+      // 強制通過ボタンのイベント
+      const arriveBtn = li.querySelector('.btn-arrive');
+      arriveBtn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        forceArriveStation(i);
+      });
+
+      ul.appendChild(li);
+    });
+
+    $routePanel.appendChild(ul);
+  }
+
+  // ==================== 強制通過 ====================
+  function forceArriveStation(idx) {
+    if (!isRunning || passedStations[idx]) return;
+    const isLast = idx === stations.length - 1;
+
+    passedStations[idx] = true;
+
+    // nextStationIndexを更新
+    while (nextStationIndex < stations.length && passedStations[nextStationIndex]) {
+      nextStationIndex++;
+    }
+    if (nextStationIndex >= stations.length) nextStationIndex = stations.length - 1;
+
+    if (isLast) {
+      // ゴール
+      maxProgress = 100000;
+      $progressValue.textContent = '100.000';
+      $progressRemaining.textContent = 'ゴール!';
+      drawTrainBar(100000, stations.length, stations.length);
+      sendProgressV2(100000, 0, 0, stations.length - 1, stations.length);
+      renderRoute();
+      setTimeout(() => stopTracking(), 500);
+    } else {
+      // 中間駅通過
+      renderRoute();
+      // 進捗を駅ベースで補正
+      const stationProgress = ((idx + 1) / stations.length) * 100000;
+      if (stationProgress > maxProgress) {
+        maxProgress = Math.round(stationProgress);
+        $progressValue.textContent = (maxProgress / 1000).toFixed(3);
+        drawTrainBar(maxProgress, nextStationIndex, stations.length);
+      }
+      sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length);
+    }
+  }
+
+  // ==================== 設定画面 ====================
+  function openSettings() {
+    $settingsOverlay.classList.add('show');
+    ensureGoogleMaps().then(() => {
+      if (!map) initMap();
+      else google.maps.event.trigger(map, 'resize');
+      updateMap();
+    }).catch(() => {
+      // Maps APIが読めなくてもリスト編集はできる
+    });
+  }
+
+  $btnSettings.addEventListener('click', openSettings);
+  $settingsClose.addEventListener('click', () => {
+    $settingsOverlay.classList.remove('show');
+    $searchResults.classList.remove('show');
+  });
+
+  function initMap() {
+    map = new google.maps.Map($('map'), {
+      center: { lat: 35.6812, lng: 139.7671 },
+      zoom: 15, disableDefaultUI: true, zoomControl: true,
+      styles: [
+        { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+        { featureType: 'transit', stylers: [{ visibility: 'off' }] }
+      ]
+    });
+    placesService = new google.maps.places.PlacesService(map);
+
+    // 現在地
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        map.setCenter(loc); map.setZoom(16);
+      }, () => {}, { enableHighAccuracy: true });
+    }
+
+    // 地図タップで駅追加
+    map.addListener('click', e => {
+      openNameModal(e.latLng.lat(), e.latLng.lng());
+    });
+  }
+
+  // ==================== 設定: 駅リスト描画 ====================
+  function renderSettingsStations() {
+    $settingsStationList.innerHTML = '';
+    stations.forEach((s, i) => {
+      const li = document.createElement('li');
+      li.className = 'ss-item';
+      const isFirst = i === 0;
+      const isLast = i === stations.length - 1;
+
+      li.innerHTML = `
+        <span class="ss-num">${i + 1}</span>
+        <span class="ss-name" data-id="${s.id}">${s.name}駅${isLast ? ' <span class="ss-badge">終着</span>' : ''}</span>
+        <div class="ss-actions">
+          <button class="ss-btn" data-dir="up" ${isFirst ? 'disabled' : ''}>&#8593;</button>
+          <button class="ss-btn" data-dir="down" ${isLast ? 'disabled' : ''}>&#8595;</button>
+          <button class="ss-btn delete" data-del="${s.id}">&#215;</button>
+        </div>
+      `;
+
+      // 並べ替え
+      li.querySelectorAll('.ss-btn[data-dir]').forEach(btn => {
         const handler = e => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (btn.disabled || isRunning) return;
-          const dir = btn.dataset.dir;
-          if (dir === 'up') moveStation(i, i - 1);
-          else moveStation(i, i + 1);
+          e.preventDefault(); e.stopPropagation();
+          if (btn.disabled) return;
+          moveStation(i, btn.dataset.dir === 'up' ? i - 1 : i + 1);
         };
         btn.addEventListener('click', handler);
         btn.addEventListener('touchend', handler);
       });
 
+      // 削除
+      const delBtn = li.querySelector('.ss-btn.delete');
+      delBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        removeStation(s.id);
+      });
+
       // 駅名タップで編集
-      const nameEl = li.querySelector('.station-name-display');
+      const nameEl = li.querySelector('.ss-name');
       nameEl.addEventListener('click', () => {
-        if (isRunning) return;
         const input = document.createElement('input');
-        input.className = 'station-name-edit';
+        input.className = 'ss-name-edit';
         input.value = s.name;
         input.maxLength = 6;
         nameEl.replaceWith(input);
-        input.focus();
-        input.select();
+        input.focus(); input.select();
         const finish = () => {
           const val = input.value.trim();
           if (val) renameStation(s.id, val);
-          else renderStations();
+          else renderAll();
         };
         input.addEventListener('blur', finish);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
       });
 
-      // 削除ボタン
-      li.querySelector('.station-delete').addEventListener('click', e => {
-        e.stopPropagation();
-        if (isRunning) return;
-        removeStation(s.id);
-      });
-
-      $stationList.appendChild(li);
-    });
-
-    updateStationStyles();
-  }
-
-  function updateStationStyles() {
-    const items = $stationList.querySelectorAll('.station-item');
-    items.forEach((li, i) => {
-      const tops = li.querySelector('.track-top');
-      const bots = li.querySelector('.track-bottom');
-      tops.style.background = i === 0 ? 'transparent' : '#E63946';
-      bots.style.background = i === items.length - 1 ? 'transparent' : '#E63946';
+      $settingsStationList.appendChild(li);
     });
   }
 
-  // ==================== 地図上のマーカー・ルート更新 ====================
+  $settingsAdd.addEventListener('click', () => {
+    $mapHint.textContent = 'タップして えきを ついか';
+  });
+
+  // ==================== 地図: マーカー・ルート更新 ====================
   function updateMap() {
+    if (!map) return;
     stationMarkers.forEach(m => m.setMap(null));
     stationMarkers = [];
     if (routeLine) { routeLine.setMap(null); routeLine = null; }
-
     if (stations.length === 0) return;
-    $mapHint.style.display = 'none';
 
-    // 駅マーカー
     stations.forEach((s, i) => {
       const isLast = i === stations.length - 1;
       const marker = new google.maps.Marker({
-        position: { lat: s.lat, lng: s.lng },
-        map,
-        label: {
-          text: isLast ? '★' : String(i + 1),
-          color: '#fff',
-          fontSize: '11px', fontWeight: 'bold'
-        },
+        position: { lat: s.lat, lng: s.lng }, map,
+        label: { text: isLast ? '★' : String(i + 1), color: '#fff', fontSize: '11px', fontWeight: 'bold' },
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: isLast ? 13 : 10,
-          fillColor: isLast ? '#E63946' : '#38A169',
-          fillOpacity: 1,
+          fillColor: isLast ? '#E63946' : '#38A169', fillOpacity: 1,
           strokeColor: '#fff', strokeWeight: 2,
         },
         title: s.name + '駅'
@@ -603,45 +638,26 @@ function initApp() {
       stationMarkers.push(marker);
     });
 
-    // ルートライン
     if (stations.length >= 2) {
       routeLine = new google.maps.Polyline({
         path: stations.map(s => ({ lat: s.lat, lng: s.lng })),
-        strokeColor: '#E63946', strokeOpacity: 0.7, strokeWeight: 4,
-        geodesic: true,
-        icons: [{
-          icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 },
-          offset: '0', repeat: '15px'
-        }]
+        strokeColor: '#E63946', strokeOpacity: 0.7, strokeWeight: 4, geodesic: true,
+        icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '15px' }]
       });
       routeLine.setMap(map);
     }
 
-    // 全駅が見えるようにズーム
-    if (stations.length >= 1) {
-      const bounds = new google.maps.LatLngBounds();
-      stations.forEach(s => bounds.extend({ lat: s.lat, lng: s.lng }));
-      map.fitBounds(bounds, 40);
-    }
+    const bounds = new google.maps.LatLngBounds();
+    stations.forEach(s => bounds.extend({ lat: s.lat, lng: s.lng }));
+    map.fitBounds(bounds, 40);
   }
 
-  // ==================== 駅追加フロー ====================
-  map.addListener('click', e => {
-    if (isRunning) return;
-    const lat = e.latLng.lat(), lng = e.latLng.lng();
-    openNameModal(lat, lng);
-  });
-
+  // ==================== 駅名モーダル ====================
   function openNameModal(lat, lng) {
     pendingStationLatLng = { lat, lng };
     $nameInput.value = '';
+    $nameInput.placeholder = stations.length === 0 ? 'おうち' : 'こうえん';
     $nameModal.classList.add('show');
-    // オンボーディング用のヒント
-    if (stations.length === 0) {
-      $nameInput.placeholder = 'おうち';
-    } else {
-      $nameInput.placeholder = 'こうえん';
-    }
     setTimeout(() => $nameInput.focus(), 100);
   }
 
@@ -649,32 +665,24 @@ function initApp() {
     $nameModal.classList.remove('show');
     pendingStationLatLng = null;
   });
+  $nameOk.addEventListener('click', confirmName);
+  $nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmName(); });
 
-  $nameOk.addEventListener('click', confirmStationName);
-  $nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmStationName(); });
-
-  function confirmStationName() {
+  function confirmName() {
     const name = $nameInput.value.trim();
     if (!name || !pendingStationLatLng) return;
     addStation(name, pendingStationLatLng.lat, pendingStationLatLng.lng);
     $nameModal.classList.remove('show');
-    $searchBar.classList.remove('show');
-    $mapHint.style.display = 'none';
     pendingStationLatLng = null;
   }
 
   // ==================== 検索 ====================
   $searchBtn.addEventListener('click', doSearch);
   $searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-  $searchClose.addEventListener('click', () => {
-    $searchBar.classList.remove('show');
-    $searchResults.classList.remove('show');
-    $mapHint.style.display = 'none';
-  });
 
   function doSearch() {
     const q = $searchInput.value.trim();
-    if (!q) return;
+    if (!q || !placesService) return;
     $searchBtn.disabled = true;
     placesService.textSearch({ query: q, language: 'ja', region: 'jp' }, (results, status) => {
       $searchBtn.disabled = false;
@@ -689,7 +697,6 @@ function initApp() {
             map.setCenter({ lat, lng }); map.setZoom(16);
             $searchResults.classList.remove('show');
             $searchInput.value = '';
-            $searchInput.blur();
             openNameModal(lat, lng);
             setTimeout(() => { $nameInput.value = r.name.slice(0, 6); }, 100);
           });
@@ -712,17 +719,14 @@ function initApp() {
     try {
       $btnBle.textContent = '接続中...';
       bleDevice = await navigator.bluetooth.requestDevice({
-        filters: [{ name: 'OsampoMeter' }],
-        optionalServices: [SERVICE_UUID]
+        filters: [{ name: 'OsampoMeter' }], optionalServices: [SERVICE_UUID]
       });
       bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
       const server = await bleDevice.gatt.connect();
       const service = await server.getPrimaryService(SERVICE_UUID);
       bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-      $bleBadge.textContent = 'BLE接続済';
-      $bleBadge.classList.add('connected');
-      $btnBle.textContent = '接続済';
-      $btnBle.disabled = true;
+      $bleBadge.textContent = 'BLE接続済'; $bleBadge.classList.add('connected');
+      $btnBle.textContent = '接続済'; $btnBle.disabled = true;
     } catch(err) {
       console.error('BLE:', err);
       $btnBle.textContent = 'BLE接続';
@@ -732,32 +736,26 @@ function initApp() {
 
   function onBleDisconnected() {
     bleCharacteristic = null;
-    $bleBadge.textContent = 'BLE切断';
-    $bleBadge.classList.remove('connected');
+    $bleBadge.textContent = 'BLE切断'; $bleBadge.classList.remove('connected');
     $btnBle.textContent = 'BLE接続'; $btnBle.disabled = false;
     if (isRunning) stopTracking();
   }
 
-  // ==================== BLE送信 (v2プロトコル) ====================
+  // ==================== BLE送信 ====================
   async function sendStationNames() {
     if (!bleCharacteristic) return;
     try {
-      const clearBuf = new Uint8Array([0x02]);
-      await bleCharacteristic.writeValueWithResponse(clearBuf.buffer);
+      await bleCharacteristic.writeValueWithResponse(new Uint8Array([0x02]).buffer);
       await sleep(50);
       for (let i = 0; i < stations.length; i++) {
         const nameBytes = new TextEncoder().encode(stations[i].name + '駅');
         const pkt = new Uint8Array(3 + Math.min(nameBytes.length, 18));
-        pkt[0] = 0x01;
-        pkt[1] = i;
-        pkt[2] = Math.min(nameBytes.length, 18);
+        pkt[0] = 0x01; pkt[1] = i; pkt[2] = Math.min(nameBytes.length, 18);
         pkt.set(nameBytes.slice(0, 18), 3);
         await bleCharacteristic.writeValueWithResponse(pkt.buffer);
         await sleep(50);
       }
-    } catch(err) {
-      console.error('駅名送信エラー:', err);
-    }
+    } catch(err) { console.error('駅名送信エラー:', err); }
   }
 
   async function sendProgressV2(overallProgress, distNext, distFinal, nextIdx, totalSt) {
@@ -772,13 +770,9 @@ function initApp() {
       v.setUint32(1, clamped, true);
       v.setUint32(5, Math.max(0, Math.round(distNext)), true);
       v.setUint32(9, Math.max(0, Math.round(distFinal)), true);
-      v.setUint8(13, nextIdx);
-      v.setUint8(14, totalSt);
-      v.setUint8(15, 0);
+      v.setUint8(13, nextIdx); v.setUint8(14, totalSt); v.setUint8(15, 0);
       await bleCharacteristic.writeValueWithoutResponse(buf);
-    } catch(err) {
-      console.error('BLE送信エラー:', err);
-    }
+    } catch(err) { console.error('BLE送信エラー:', err); }
   }
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -791,20 +785,17 @@ function initApp() {
   async function startTracking() {
     if (stations.length === 0) return;
     isRunning = true;
-    startDistance = null;
-    maxProgress = 0;
-    lastSentProgress = -1;
+    startDistance = null; maxProgress = 0; lastSentProgress = -1;
     nextStationIndex = 0;
     passedStations = new Array(stations.length).fill(false);
 
-    enterRunningMode();
-
     $btnStart.textContent = 'ストップ';
     $btnStart.classList.remove('btn-start'); $btnStart.classList.add('btn-stop');
-    $btnGoal.style.display = 'block';
-    $nextName.textContent = stations[0].name + '駅';
+    $btnSettings.style.display = 'none';
     $progressValue.textContent = '0.000';
     $progressRemaining.textContent = '';
+
+    renderRoute();
     drawTrainBar(0, 0, stations.length);
 
     await requestWakeLock();
@@ -822,32 +813,22 @@ function initApp() {
     if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
     startDistance = null; maxProgress = 0;
 
-    exitRunningMode();
-
     $btnStart.textContent = 'しゅっぱつ!';
     $btnStart.classList.remove('btn-stop'); $btnStart.classList.add('btn-start');
-    $btnGoal.style.display = 'none';
+    $btnSettings.style.display = '';
+
+    renderRoute();
     releaseWakeLock();
   }
 
   function onPositionUpdate(pos) {
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
 
-    if (currentMarker) currentMarker.setCenter({ lat, lng });
-    else {
-      currentMarker = new google.maps.Circle({
-        map, center: { lat, lng }, radius: 8,
-        fillColor: '#4299E1', fillOpacity: 1,
-        strokeColor: '#fff', strokeWeight: 2, clickable: false
-      });
-    }
-
     const finalStation = stations[stations.length - 1];
     const distToFinal = haversineDistance(lat, lng, finalStation.lat, finalStation.lng);
 
     if (startDistance === null) {
-      startDistance = distToFinal;
-      if (startDistance < GOAL_RADIUS) startDistance = GOAL_RADIUS;
+      startDistance = Math.max(distToFinal, GOAL_RADIUS);
     }
 
     // 駅通過チェック
@@ -859,13 +840,12 @@ function initApp() {
         if (i === nextStationIndex) {
           nextStationIndex = Math.min(i + 1, stations.length - 1);
         }
+        renderRoute(); // 駅の表示を更新
       }
     }
 
     const nextSt = stations[Math.min(nextStationIndex, stations.length - 1)];
     const distToNext = haversineDistance(lat, lng, nextSt.lat, nextSt.lng);
-    $nextName.textContent = nextSt.name + '駅';
-    $nextDist.textContent = 'のこり ' + formatDist(distToNext);
 
     let progress;
     if (distToFinal <= GOAL_RADIUS) {
@@ -884,18 +864,6 @@ function initApp() {
     sendProgressV2(progressRounded, distToNext, distToFinal, nextStationIndex, stations.length);
   }
 
-  // ==================== 強制ゴール ====================
-  $btnGoal.addEventListener('click', () => {
-    if (!isRunning) return;
-    maxProgress = 100000;
-    $progressValue.textContent = '100.000';
-    $progressRemaining.textContent = 'ゴール!';
-    $nextDist.textContent = 'とうちゃく!';
-    drawTrainBar(100000, stations.length, stations.length);
-    sendProgressV2(100000, 0, 0, stations.length - 1, stations.length);
-    stopTracking();
-  });
-
   // ==================== テストモード ====================
   let testTimer = null, testProgress = 0;
 
@@ -909,16 +877,22 @@ function initApp() {
       $bleBadge.classList.remove('test-mode');
       $progressValue.textContent = '0.000';
       $progressRemaining.textContent = '';
-      exitRunningMode();
+      isRunning = false;
+      passedStations = [];
+      nextStationIndex = 0;
+      $btnSettings.style.display = '';
+      renderRoute();
       drawTrainBar(0, 0, Math.max(1, stations.length));
       releaseWakeLock();
     } else {
-      testMode = true;
+      testMode = true; isRunning = true;
       testProgress = 0;
+      nextStationIndex = 0;
+      passedStations = new Array(stations.length).fill(false);
       $btnTest.classList.add('active');
-      $bleBadge.textContent = 'テスト';
-      $bleBadge.classList.add('test-mode');
-      enterRunningMode();
+      $bleBadge.textContent = 'テスト'; $bleBadge.classList.add('test-mode');
+      $btnSettings.style.display = 'none';
+      renderRoute();
       requestWakeLock();
       sendStationNames();
 
@@ -927,13 +901,18 @@ function initApp() {
         testProgress += 167;
         if (testProgress > 100000) testProgress = 100000;
         const fakeSt = Math.floor((testProgress / 100000) * total);
+
+        // 通過済みの駅を更新
+        for (let i = 0; i < fakeSt && i < stations.length; i++) {
+          if (!passedStations[i]) {
+            passedStations[i] = true;
+            renderRoute();
+          }
+        }
+        nextStationIndex = Math.min(fakeSt, stations.length - 1);
+
         $progressValue.textContent = (testProgress / 1000).toFixed(3);
         $progressRemaining.textContent = 'テスト中...';
-        if (stations.length > 0) {
-          const idx = Math.min(fakeSt, stations.length - 1);
-          $nextName.textContent = stations[idx].name + '駅';
-          $nextDist.textContent = 'テスト中...';
-        }
         drawTrainBar(testProgress, fakeSt, total);
         sendProgressV2(testProgress, 100, 500, Math.min(fakeSt, total - 1), total);
         if (testProgress >= 100000) { clearInterval(testTimer); testTimer = null; }
@@ -941,7 +920,7 @@ function initApp() {
     }
   });
 
-  // ==================== 電車プログレスバー描画 ====================
+  // ==================== 電車プログレスバー ====================
   function drawTrainBar(progress, nextIdx, totalStations) {
     const canvas = trainCanvas;
     const dpr = window.devicePixelRatio || 1;
@@ -951,70 +930,44 @@ function initApp() {
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const padX = 16, trackY = H / 2 + 2;
-    const trackW = W - 2 * padX;
+    const padX = 16, trackY = H / 2 + 2, trackW = W - 2 * padX;
 
     // 枕木
-    ctx.strokeStyle = '#E2E8F0';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 1;
     for (let x = padX; x <= padX + trackW; x += 8) {
-      ctx.beginPath();
-      ctx.moveTo(x, trackY - 5); ctx.lineTo(x, trackY + 5);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, trackY - 5); ctx.lineTo(x, trackY + 5); ctx.stroke();
     }
-
     // レール
-    ctx.strokeStyle = '#A0AEC0';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#A0AEC0'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(padX, trackY - 3); ctx.lineTo(padX + trackW, trackY - 3); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(padX, trackY + 3); ctx.lineTo(padX + trackW, trackY + 3); ctx.stroke();
 
     // 駅マーカー
-    const stSize = H > 40 ? 6 : 4.5;
-    const stSizeLast = H > 40 ? 7.5 : 5.5;
     for (let i = 0; i < totalStations; i++) {
       const x = padX + (trackW * (i + 1)) / (totalStations + 1);
       const isLast = i === totalStations - 1;
-      ctx.beginPath();
-      ctx.arc(x, trackY, isLast ? stSizeLast : stSize, 0, Math.PI * 2);
-      if (i < nextIdx) {
-        ctx.fillStyle = '#38A169'; ctx.fill();
-      } else if (isLast) {
-        ctx.fillStyle = '#E63946'; ctx.fill();
-      } else {
-        ctx.fillStyle = '#fff'; ctx.fill();
-        ctx.strokeStyle = '#A0AEC0'; ctx.lineWidth = 1.5; ctx.stroke();
-      }
+      ctx.beginPath(); ctx.arc(x, trackY, isLast ? 7 : 5.5, 0, Math.PI * 2);
+      if (i < nextIdx) { ctx.fillStyle = '#38A169'; ctx.fill(); }
+      else if (isLast) { ctx.fillStyle = '#E63946'; ctx.fill(); }
+      else { ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#A0AEC0'; ctx.lineWidth = 1.5; ctx.stroke(); }
     }
 
-    // 電車アイコン
+    // 電車
     const trainX = padX + (trackW * Math.min(progress, 100000)) / 100000;
-    const tw = H > 40 ? 18 : 14, th = H > 40 ? 12 : 9;
     ctx.fillStyle = '#E63946';
-    ctx.beginPath();
-    ctx.roundRect(trainX - tw/2, trackY - th - 5, tw, th, 2);
-    ctx.fill();
-    // 窓
+    ctx.beginPath(); ctx.roundRect(trainX - 9, trackY - 16, 18, 12, 2); ctx.fill();
     ctx.fillStyle = '#FFF5F5';
-    const ww = H > 40 ? 4 : 3;
-    ctx.fillRect(trainX - tw/2 + 3, trackY - th - 3, ww, ww);
-    ctx.fillRect(trainX + tw/2 - 3 - ww, trackY - th - 3, ww, ww);
-    // 前面ライン
+    ctx.fillRect(trainX - 6, trackY - 14, 4, 4);
+    ctx.fillRect(trainX + 2, trackY - 14, 4, 4);
     ctx.fillStyle = '#fff';
-    ctx.fillRect(trainX - tw/2, trackY - 6, tw, 1.5);
+    ctx.fillRect(trainX - 9, trackY - 6, 18, 1.5);
   }
 
   // ==================== Wake Lock ====================
   async function requestWakeLock() {
-    try {
-      if ('wakeLock' in navigator) {
-        wakeLock = await navigator.wakeLock.request('screen');
-      }
-    } catch(e) {}
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
   }
-  function releaseWakeLock() {
-    if (wakeLock) { wakeLock.release(); wakeLock = null; }
-  }
+  function releaseWakeLock() { if (wakeLock) { wakeLock.release(); wakeLock = null; } }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && (isRunning || testMode)) requestWakeLock();
   });
@@ -1026,18 +979,12 @@ function initApp() {
     const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
-
-  function formatDist(m) {
-    return m >= 1000 ? (m/1000).toFixed(1) + ' km' : Math.round(m) + ' m';
-  }
-
-  function updateStartButton() {
-    $btnStart.disabled = stations.length === 0;
-  }
+  function formatDist(m) { return m >= 1000 ? (m/1000).toFixed(1) + ' km' : Math.round(m) + ' m'; }
+  function updateStartButton() { $btnStart.disabled = stations.length === 0; }
 
   // ==================== 初期化 ====================
   loadStations();
-  updateStartButton();
+  renderAll();
   drawTrainBar(0, 0, Math.max(1, stations.length));
 }
 </script>
