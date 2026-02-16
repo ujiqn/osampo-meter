@@ -854,15 +854,57 @@ function initApp() {
     releaseWakeLock();
   }
 
+  // 点Pから線分AB上への射影位置(0-1)と距離を返す
+  function projectOntoSegment(pLat, pLng, aLat, aLng, bLat, bLng) {
+    const apLat = pLat - aLat, apLng = pLng - aLng;
+    const abLat = bLat - aLat, abLng = bLng - aLng;
+    const ab2 = abLat * abLat + abLng * abLng;
+    if (ab2 === 0) return { t: 0, dist: haversineDistance(pLat, pLng, aLat, aLng) };
+    const t = Math.max(0, Math.min(1, (apLat * abLat + apLng * abLng) / ab2));
+    const projLat = aLat + t * abLat, projLng = aLng + t * abLng;
+    return { t, dist: haversineDistance(pLat, pLng, projLat, projLng) };
+  }
+
+  // 累積距離ベースの進捗計算
+  function calcRouteProgress(lat, lng) {
+    if (stations.length < 2) return { progress: 0, distToFinal: 0, distToNext: 0 };
+
+    // 各区間の距離と累積距離
+    const segDists = [];
+    const cumDist = [0];
+    for (let i = 1; i < stations.length; i++) {
+      const d = haversineDistance(stations[i-1].lat, stations[i-1].lng, stations[i].lat, stations[i].lng);
+      segDists.push(d);
+      cumDist.push(cumDist[i-1] + d);
+    }
+    const totalDist = cumDist[cumDist.length - 1];
+    if (totalDist === 0) return { progress: 0, distToFinal: 0, distToNext: 0 };
+
+    // 全区間への射影で最も近い場所を見つける
+    let bestDist = Infinity, bestCum = 0;
+    for (let i = 0; i < stations.length - 1; i++) {
+      const proj = projectOntoSegment(lat, lng,
+        stations[i].lat, stations[i].lng,
+        stations[i+1].lat, stations[i+1].lng);
+      if (proj.dist < bestDist) {
+        bestDist = proj.dist;
+        bestCum = cumDist[i] + proj.t * segDists[i];
+      }
+    }
+
+    const progress = (bestCum / totalDist) * 100000;
+    const distToFinal = haversineDistance(lat, lng, stations[stations.length-1].lat, stations[stations.length-1].lng);
+    const nextSt = stations[Math.min(nextStationIndex, stations.length - 1)];
+    const distToNext = haversineDistance(lat, lng, nextSt.lat, nextSt.lng);
+
+    return { progress: Math.max(0, Math.min(99999, progress)), distToFinal, distToNext };
+  }
+
   function onPositionUpdate(pos) {
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
 
     const finalStation = stations[stations.length - 1];
     const distToFinal = haversineDistance(lat, lng, finalStation.lat, finalStation.lng);
-
-    if (startDistance === null) {
-      startDistance = Math.max(distToFinal, GOAL_RADIUS);
-    }
 
     // 駅通過チェック
     for (let i = nextStationIndex; i < stations.length; i++) {
@@ -873,20 +915,21 @@ function initApp() {
         if (i === nextStationIndex) {
           nextStationIndex = Math.min(i + 1, stations.length - 1);
         }
-        renderRoute(); // 駅の表示を更新
+        renderRoute();
       }
     }
 
-    const nextSt = stations[Math.min(nextStationIndex, stations.length - 1)];
-    const distToNext = haversineDistance(lat, lng, nextSt.lat, nextSt.lng);
-
     let progress;
+    let distToNext;
     if (distToFinal <= GOAL_RADIUS) {
       progress = 100000;
+      distToNext = 0;
     } else {
-      progress = (1 - distToFinal / startDistance) * 100000;
-      progress = Math.max(0, Math.min(99999, progress));
+      const rp = calcRouteProgress(lat, lng);
+      progress = rp.progress;
+      distToNext = rp.distToNext;
     }
+
     let progressRounded = Math.round(progress);
     if (progressRounded < maxProgress) progressRounded = maxProgress;
     else maxProgress = progressRounded;
