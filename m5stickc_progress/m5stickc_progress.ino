@@ -167,6 +167,7 @@ class ProgressCallbacks : public BLECharacteristicCallbacks {
         // v2: 駅クリア
         v2Mode = true;
         stationCount = 0;
+        totalStations = 0;
         currentNextStation = 0;
         for (int i = 0; i < MAX_STATIONS; i++) {
           memset(stations[i].name, 0, MAX_NAME_BYTES);
@@ -463,6 +464,7 @@ void loop() {
     currentProgress = 0; prevProgress = 0;
     lastMilestone = -1;
     currentNextStation = 0; prevNextStation = 0;
+    totalStations = 0;
     displayMode = DISPLAY_PROGRESS;
     showDistance = false;
     v2Mode = false;
@@ -481,7 +483,7 @@ void loop() {
     prevConnected = false;
     currentState = STATE_WAITING;
     currentProgress = 0; lastMilestone = -1;
-    stationCount = 0; v2Mode = false;
+    stationCount = 0; totalStations = 0; v2Mode = false;
     drawWaiting();
     delay(500);
     BLEDevice::startAdvertising();

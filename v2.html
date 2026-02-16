@@ -837,8 +837,9 @@ function initApp() {
     sendProgressV2(0, 0, 0, 0, stations.length);
 
     watchId = navigator.geolocation.watchPosition(
-      onPositionUpdate, err => console.error('GPS:', err),
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+      onPositionUpdate,
+      err => console.error('GPS error:', err.code, err.message),
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
     );
   }
 
@@ -901,11 +902,15 @@ function initApp() {
     return { progress: Math.max(0, Math.min(99999, progress)), distToFinal, distToNext };
   }
 
+  let gpsUpdateCount = 0;
   function onPositionUpdate(pos) {
+    gpsUpdateCount++;
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    const accuracy = pos.coords.accuracy;
 
     const finalStation = stations[stations.length - 1];
     const distToFinal = haversineDistance(lat, lng, finalStation.lat, finalStation.lng);
+    const distToFirst = haversineDistance(lat, lng, stations[0].lat, stations[0].lng);
 
     // 駅通過チェック
     for (let i = nextStationIndex; i < stations.length; i++) {
@@ -936,7 +941,9 @@ function initApp() {
     else maxProgress = progressRounded;
 
     $progressValue.textContent = (progressRounded / 1000).toFixed(3);
-    $progressRemaining.textContent = 'ゴールまで ' + formatDist(distToFinal);
+    $progressRemaining.textContent = 'ゴールまで ' + formatDist(distToFinal)
+      + ' | GPS#' + gpsUpdateCount + ' ±' + Math.round(accuracy) + 'm'
+      + ' 出発駅' + Math.round(distToFirst) + 'm';
     drawTrainBar(progressRounded, nextStationIndex, stations.length);
     sendProgressV2(progressRounded, distToNext, distToFinal, nextStationIndex, stations.length);
   }
