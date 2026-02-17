@@ -119,6 +119,7 @@
     font-variant-numeric: tabular-nums;
   }
   .progress-remaining { font-size: 12px; color: #A0AEC0; margin-top: 2px; }
+  .gps-status { font-size: 10px; color: #CBD5E0; margin-top: 2px; }
 
   /* ===== コントロール ===== */
   .controls {
@@ -258,7 +259,7 @@
 
 <!-- ===== ヘッダー ===== -->
 <div class="header">
-  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.14</span></h1>
+  <h1>🚂 お散歩列車 <span style="font-size:9px;font-weight:400;opacity:0.5">v2.15</span></h1>
   <div class="header-right">
     <span class="ble-badge" id="bleBadge">BLE未接続</span>
     <button class="btn-settings" id="btnSettings">&#9881;</button>
@@ -274,6 +275,7 @@
   <canvas class="train-track-bar" id="trainCanvas" width="360" height="48"></canvas>
   <div class="progress-number"><span id="progressValue">0.000</span>%</div>
   <div class="progress-remaining" id="progressRemaining"></div>
+  <div class="gps-status" id="gpsStatus"></div>
 </div>
 
 <!-- ===== コントロール ===== -->
@@ -358,6 +360,7 @@ function initApp() {
   let nextStationIndex = 0;
   let passedStations = [];
   let pendingStationLatLng = null;
+  let gpsUpdateCount = 0;
 
   // 設定画面用
   let map = null, placesService = null;
@@ -367,7 +370,7 @@ function initApp() {
   const $ = id => document.getElementById(id);
   const $bleBadge = $('bleBadge'), $btnBle = $('btnBle'), $btnTest = $('btnTest');
   const $btnStart = $('btnStart'), $btnSettings = $('btnSettings');
-  const $progressValue = $('progressValue'), $progressRemaining = $('progressRemaining');
+  const $progressValue = $('progressValue'), $progressRemaining = $('progressRemaining'), $gpsStatus = $('gpsStatus');
   const $routePanel = $('routePanel');
   const $settingsOverlay = $('settingsOverlay'), $settingsClose = $('settingsClose');
   const $searchInput = $('searchInput'), $searchBtn = $('searchBtn'), $searchResults = $('searchResults');
@@ -534,7 +537,7 @@ function initApp() {
       $progressValue.textContent = '100.000';
       $progressRemaining.textContent = 'ゴール!';
       drawTrainBar(100000, stations.length, stations.length);
-      sendProgressForced(100000, 0, 0, stations.length - 1, stations.length);
+      sendProgressForced(100000, 0, 0, bleTotalSt() - 1, bleTotalSt());
       renderRoute();
       setTimeout(() => stopTracking(), 500);
     } else {
@@ -543,7 +546,7 @@ function initApp() {
       renderRoute();
       $progressValue.textContent = (maxProgress / 1000).toFixed(3);
       drawTrainBar(maxProgress, nextStationIndex, stations.length);
-      sendProgressForced(maxProgress, 0, 0, nextStationIndex, stations.length);
+      sendProgressForced(maxProgress, 0, 0, bleNextIdx(), bleTotalSt());
     }
   }
 
@@ -566,7 +569,7 @@ function initApp() {
     $progressValue.textContent = (maxProgress / 1000).toFixed(3);
     drawTrainBar(maxProgress, nextStationIndex, stations.length);
     // 通過：スキップフラグ(0x01)付きで送信 → M5側で到着演出を抑制
-    sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length, 0x01);
+    sendProgressV2(maxProgress, 0, 0, bleNextIdx(), bleTotalSt(), 0x01);
   }
 
   // ==================== 設定画面 ====================
@@ -807,7 +810,7 @@ function initApp() {
         await sendStationNames();
         lastSentProgress = -1;
         // スキップフラグ付きでM5のprevNextStationを同期（到着演出を抑制）
-        sendProgressV2(maxProgress, 0, 0, nextStationIndex, stations.length, 0x01);
+        sendProgressV2(maxProgress, 0, 0, bleNextIdx(), bleTotalSt(), 0x01);
       }
     } catch(err) {
       console.error('BLE:', err);
@@ -851,19 +854,25 @@ function initApp() {
     });
   }
 
+  // M5にはおうち駅(index 0)を送らない。M5向けのインデックス変換:
+  function bleNextIdx() { return Math.max(0, nextStationIndex - 1); }
+  function bleTotalSt() { return stations.length - 1; }
+
   async function sendStationNames() {
     if (!bleCharacteristic) return;
     const pcts = calcStationProgressPcts();
+    // おうち駅(index 0)を除いて送信
+    const bleStations = stations.slice(1);
     try {
       await bleCharacteristic.writeValueWithResponse(new Uint8Array([0x02]).buffer);
       await sleep(50);
-      for (let i = 0; i < stations.length; i++) {
-        const nameBytes = new TextEncoder().encode(stations[i].name + '駅');
+      for (let i = 0; i < bleStations.length; i++) {
+        const nameBytes = new TextEncoder().encode(bleStations[i].name + '駅');
         const nameLen = Math.min(nameBytes.length, 18);
         const pkt = new Uint8Array(3 + nameLen + 1); // +1 for progressPct
         pkt[0] = 0x01; pkt[1] = i; pkt[2] = nameLen;
         pkt.set(nameBytes.slice(0, nameLen), 3);
-        pkt[3 + nameLen] = pcts[i] || 0;  // 位置% (0-100)
+        pkt[3 + nameLen] = pcts[i + 1] || 0;  // index+1でおうち駅を飛ばす
         await bleCharacteristic.writeValueWithResponse(pkt.buffer);
         await sleep(50);
       }
@@ -931,7 +940,7 @@ function initApp() {
     }
 
     isRunning = true;
-    startDistance = null; maxProgress = 0; lastSentProgress = -1;
+    startDistance = null; maxProgress = 0; lastSentProgress = -1; gpsUpdateCount = 0;
     passedStations = new Array(stations.length).fill(false);
     // 出発駅は最初から通過済み（到着判定不要）
     passedStations[0] = true;
@@ -948,9 +957,9 @@ function initApp() {
 
     await requestWakeLock();
     await sendStationNames();
-    // 出発駅(idx=0)はスキップ済みなので、nextIdx=1をスキップフラグ付きで送信
-    // → M5側でprevNextStation=1に同期され、出発駅の到着演出が鳴らない
-    sendProgressV2(0, 0, 0, 1, stations.length, 0x01);
+    // M5にはおうち駅を送っていないのでbleNextIdx()=0, bleTotalSt()=駅数-1
+    // スキップフラグ付きでM5のprevNextStationを同期
+    sendProgressV2(0, 0, 0, bleNextIdx(), bleTotalSt(), 0x01);
 
     watchId = navigator.geolocation.watchPosition(
       onPositionUpdate,
@@ -973,6 +982,7 @@ function initApp() {
     $btnStart.textContent = 'しゅっぱつ!';
     $btnStart.classList.remove('btn-stop'); $btnStart.classList.add('btn-start');
     $btnSettings.style.display = '';
+    $gpsStatus.textContent = '';
 
     renderRoute();
     releaseWakeLock();
@@ -1005,6 +1015,9 @@ function initApp() {
 
   function onPositionUpdate(pos) {
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    const acc = pos.coords.accuracy;
+    gpsUpdateCount++;
+    $gpsStatus.textContent = `📡 GPS: ${gpsUpdateCount}回 精度±${Math.round(acc)}m`;
 
     const finalStation = stations[stations.length - 1];
     const distToFinal = haversineDistance(lat, lng, finalStation.lat, finalStation.lng);
@@ -1040,7 +1053,7 @@ function initApp() {
     $progressValue.textContent = (progressRounded / 1000).toFixed(3);
     $progressRemaining.textContent = 'ゴールまで ' + formatDist(distToFinal);
     drawTrainBar(progressRounded, nextStationIndex, stations.length);
-    sendProgressV2(progressRounded, distToNext, distToFinal, nextStationIndex, stations.length);
+    sendProgressV2(progressRounded, distToNext, distToFinal, bleNextIdx(), bleTotalSt());
   }
 
   // ==================== テストモード ====================
@@ -1093,7 +1106,7 @@ function initApp() {
         $progressValue.textContent = (testProgress / 1000).toFixed(3);
         $progressRemaining.textContent = 'テスト中...';
         drawTrainBar(testProgress, fakeSt, total);
-        sendProgressV2(testProgress, 100, 500, Math.min(fakeSt, total - 1), total);
+        sendProgressV2(testProgress, 100, 500, Math.max(0, Math.min(fakeSt, total - 1) - 1), total - 1);
         if (testProgress >= 100000) { clearInterval(testTimer); testTimer = null; }
       }, 100);
     }

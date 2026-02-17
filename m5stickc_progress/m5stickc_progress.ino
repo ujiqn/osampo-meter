@@ -47,6 +47,7 @@ enum DisplayMode {
 
 State currentState = STATE_WAITING;
 DisplayMode displayMode = DISPLAY_PROGRESS;
+bool showPercent = true;  // パーセンテージ表示ON/OFF
 bool deviceConnected = false;
 bool prevConnected = false;
 
@@ -71,19 +72,21 @@ bool showDistance = false;
 
 // --- メロディ定義 ---
 
-// 愛の挨拶 (Salut d'Amour) Op.12 終結部
-// ドシ♭ラーソファレーミーファーー
-const int salutDamourEnding[][2] = {
-  {1047, 250},  // C6 (ド)
-  {932, 250},   // Bb5 (シ♭)
-  {880, 500},   // A5 (ラー)
+// 愛の挨拶 (Salut d'Amour) Op.12 冒頭
+// ラードファソファミファシ♭ーシ♭ーシ♭ーー
+const int salutDamourOpening[][2] = {
+  {880, 250},   // A5 (ラ)
+  {1047, 500},  // C6 (ドー)
+  {698, 250},   // F5 (ファ)
   {784, 250},   // G5 (ソ)
   {698, 250},   // F5 (ファ)
-  {587, 500},   // D5 (レー)
-  {659, 500},   // E5 (ミー)
-  {698, 900},   // F5 (ファーー)
+  {659, 250},   // E5 (ミ)
+  {698, 250},   // F5 (ファ)
+  {932, 500},   // Bb5 (シ♭ー)
+  {932, 500},   // Bb5 (シ♭ー)
+  {932, 900},   // Bb5 (シ♭ーー)
 };
-const int salutEndLen = 8;
+const int salutOpenLen = 10;
 
 // v1用: マイルストーンメロディ (3音)
 const int milestoneMelody[][2] = {
@@ -226,36 +229,57 @@ void drawProgress(uint32_t progress) {
   int W = M5.Lcd.width(), H = M5.Lcd.height();
 
   if (v2Mode && totalStations > 0) {
-    // === v2: 1画面統合レイアウト ===
-    // 上段: X.XXX%
-    float pct = progress / 1000.0;
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%.3f%%", pct);
-    M5.Lcd.setFont(&fonts::Font4);
-    M5.Lcd.setTextSize(1.5);
-    M5.Lcd.setTextDatum(MC_DATUM);
-    M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
-    M5.Lcd.drawString(buf, W/2, 22);
+    if (showPercent) {
+      // === v2: パーセンテージ表示ON ===
+      // 上段: X.XXX%
+      float pct = progress / 1000.0;
+      char buf[16];
+      snprintf(buf, sizeof(buf), "%.3f%%", pct);
+      M5.Lcd.setFont(&fonts::Font4);
+      M5.Lcd.setTextSize(1.5);
+      M5.Lcd.setTextDatum(MC_DATUM);
+      M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
+      M5.Lcd.drawString(buf, W/2, 22);
 
-    // 中段: 次は XX駅 (「次は」を小さく、駅名を大きく)
-    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_16);
-    M5.Lcd.setTextSize(1);
-    M5.Lcd.setTextColor(0x8410, TFT_BLACK);  // グレー
-    M5.Lcd.setTextDatum(ML_DATUM);
-    M5.Lcd.drawString("次は", 6, H/2 + 22);
-    M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
-    M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
-    M5.Lcd.setTextDatum(MC_DATUM);
-    if (currentNextStation < stationCount) {
-      const char* sname = stations[currentNextStation].name;
-      int nameLen = strlen(sname);
-      // UTF-8のバイト数で判定（日本語1文字=3バイト）: 6文字以上なら小さく
-      if (nameLen > 15) {
-        M5.Lcd.setFont(&fonts::lgfxJapanGothicP_24);
+      // 中段: 次は XX駅 (「次は」を小さく、駅名を大きく)
+      M5.Lcd.setFont(&fonts::lgfxJapanGothicP_16);
+      M5.Lcd.setTextSize(1);
+      M5.Lcd.setTextColor(0x8410, TFT_BLACK);
+      M5.Lcd.setTextDatum(ML_DATUM);
+      M5.Lcd.drawString("次は", 6, H/2 + 22);
+      M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
+      M5.Lcd.setFont(&fonts::lgfxJapanGothicP_28);
+      M5.Lcd.setTextDatum(MC_DATUM);
+      if (currentNextStation < stationCount) {
+        const char* sname = stations[currentNextStation].name;
+        int nameLen = strlen(sname);
+        if (nameLen > 15) {
+          M5.Lcd.setFont(&fonts::lgfxJapanGothicP_24);
+        }
+        M5.Lcd.drawString(sname, W/2 + 16, H/2 + 22);
+      } else {
+        M5.Lcd.drawString("---", W/2 + 16, H/2 + 22);
       }
-      M5.Lcd.drawString(sname, W/2 + 16, H/2 + 22);
     } else {
-      M5.Lcd.drawString("---", W/2 + 16, H/2 + 22);
+      // === v2: パーセンテージ表示OFF（駅名大きく2段表示） ===
+      M5.Lcd.setFont(&fonts::lgfxJapanGothicP_24);
+      M5.Lcd.setTextSize(1);
+      M5.Lcd.setTextDatum(MC_DATUM);
+      M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+      M5.Lcd.drawString("次は", W/2, 18);
+
+      M5.Lcd.setFont(&fonts::lgfxJapanGothicP_36);
+      M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
+      if (currentNextStation < stationCount) {
+        const char* sname = stations[currentNextStation].name;
+        int nameLen = strlen(sname);
+        if (nameLen > 15) {
+          M5.Lcd.setFont(&fonts::lgfxJapanGothicP_32);
+        }
+        M5.Lcd.drawString(sname, W/2, H/2 + 10);
+      } else {
+        M5.Lcd.drawString("---", W/2, H/2 + 10);
+      }
     }
 
     // 下段: 電車メーター
@@ -435,8 +459,8 @@ void playMelody(const int melody[][2], int len) {
 }
 
 void playStationArrivalMelody(uint8_t stationIdx) {
-  // 愛の挨拶 終結部のみ
-  playMelody(salutDamourEnding, salutEndLen);
+  // 愛の挨拶 冒頭部
+  playMelody(salutDamourOpening, salutOpenLen);
 }
 
 void playGoalMelody() {
@@ -526,11 +550,16 @@ void loop() {
     return;
   }
 
-  // ボタンA: v1のみ表示モード切替（v2は1画面統合なので不要）
-  if (M5.BtnA.wasPressed() && currentState == STATE_PROGRESS && !v2Mode) {
-    showDistance = !showDistance;
-    if (showDistance) drawDistance();
-    else drawProgress(currentProgress);
+  // ボタンA: 表示モード切替
+  if (M5.BtnA.wasPressed() && currentState == STATE_PROGRESS) {
+    if (v2Mode) {
+      showPercent = !showPercent;
+      drawProgress(currentProgress);
+    } else {
+      showDistance = !showDistance;
+      if (showDistance) drawDistance();
+      else drawProgress(currentProgress);
+    }
   }
 
   // 駅到着演出
